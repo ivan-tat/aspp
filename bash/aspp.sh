@@ -13,6 +13,8 @@ set -e
 
 PROGRAM_NAME=\
 'aspp'
+PROGRAM_VERSION=\
+'0.1'
 PROGRAM_DESCRIPTION=\
 'Simple assembler source file preprocessor.'
 PROGRAM_LICENSE=\
@@ -23,6 +25,8 @@ PROGRAM_AUTHORS=\
 'Author: Ivan Tatarinov, <ivan-tat@ya.ru>, 2019-2020.'
 PROGRAM_CONTACTS=\
 'Home page: <https://gitlab.com/ivan-tat/aspp>'
+HELP_HINT=\
+"Use '-h' or '--help' to get help."
 
 DEBUG=0
 
@@ -443,14 +447,12 @@ print_prerequisites() {
 
 show_title() {
     cat <<EOT
-$PROGRAM_NAME - $PROGRAM_DESCRIPTION
+$PROGRAM_NAME (version $PROGRAM_VERSION) - $PROGRAM_DESCRIPTION
 $PROGRAM_LICENSE
 $PROGRAM_AUTHORS
 $PROGRAM_CONTACTS
 EOT
 }
-
-HELP_HINT="Use '-h' or '--help' to get help."
 
 show_help() {
     cat <<EOT
