@@ -65,35 +65,35 @@ _dbg() {
     fi
 }
 
-_dbg_dump_tables() {
+_dbg_dump_vars() {
     local -i i N
     if [[ -n $DEBUG ]]; then
         i=0
         N=${#v_include_paths_real[@]}
         if [[ $N -eq 0 ]]; then _dbg "No include paths."; fi
         while [[ $i -lt $N ]]; do
-            _dbg "include path [$i]: user path = '${v_include_paths_user[$i]}'"
-            _dbg "include path [$i]: base path = '${v_include_paths_base[$i]}'"
-            _dbg "include path [$i]: real path = '${v_include_paths_real[$i]}'"
+            _dbg "Include path #$i: user path = '${v_include_paths_user[$i]}'"
+            _dbg "Include path #$i: base path = '${v_include_paths_base[$i]}'"
+            _dbg "Include path #$i: real path = '${v_include_paths_real[$i]}'"
             let i=i+1
         done
         i=0
         N=${#v_input_sources_real[@]}
         if [[ $N -eq 0 ]]; then _dbg "No input sources."; fi
         while [[ $i -lt $N ]]; do
-            _dbg "input source [$i]: user file = '${v_input_sources_user[$i]}'"
-            _dbg "input source [$i]: base path = '${v_input_sources_base[$i]}'"
-            _dbg "input source [$i]: real file = '${v_input_sources_real[$i]}'"
+            _dbg "Input source #$i: user file = '${v_input_sources_user[$i]}'"
+            _dbg "Input source #$i: base path = '${v_input_sources_base[$i]}'"
+            _dbg "Input source #$i: real file = '${v_input_sources_real[$i]}'"
             let i=i+1
         done
         i=0
         N=${#v_target_names[@]}
         if [[ $N -eq 0 ]]; then _dbg "No target names."; fi
         while [[ $i -lt $N ]]; do
-            _dbg "target [$i] = '${v_target_names[$i]}'"
+            _dbg "Target #$i: user file = '${v_target_names[$i]}'"
             let i=i+1
         done
-        _dbg "output = '$v_output_name'"
+        _dbg "Output file name = '$v_output_name'"
     fi
 }
 
@@ -145,10 +145,10 @@ add_include_path() {
     v_include_paths_base[$i]="$2"
     v_include_paths_user[$i]="$3"
     index=$i
-    _dbg "added new include path #$i:"
-    _dbg "include path [$i]: user name = '$3'"
-    _dbg "include path [$i]: base path = '$2'"
-    _dbg "include path [$i]: real path = '$1'"
+    _dbg "Added new include path #$i:"
+    _dbg "Include path #$i: user path = '$3'"
+    _dbg "Include path #$i: base path = '$2'"
+    _dbg "Include path #$i: real path = '$1'"
     return 0
 }
 
@@ -157,7 +157,7 @@ add_target_name() {
     local -i i
     i=${#v_target_names[@]}
     v_target_names[$i]="$1"
-    _dbg "added new target name #$i: '$1'"
+    _dbg "Added new target name #$i: '$1'"
     return 0
 }
 
@@ -183,7 +183,7 @@ find_include_path_real() {
         let i=i+1
     done
     index=-1
-    _dbg "failed on '$1'."
+    _dbg "Failed to find real path '$1'."
     return 1
 }
 
@@ -203,13 +203,13 @@ find_include_path_user() {
         if [[ "$f" == "$1" ]]; then
             index=$i
             r="${v_include_paths_real[$i]}"
-            _dbg "found '$f' as '$r' at #$i."
+            _dbg "Found user path '$f' (real path '$r') at #$i."
             return 0
         fi
         let i=i+1
     done
     index=-1
-    _dbg "failed on '$1'."
+    _dbg "Failed to find user path '$1'."
     return 1
 }
 
@@ -239,7 +239,7 @@ add_include_dir_with_check() {
                 index=$i
             else
                 index=-1
-                _dbg "'$f' not found."
+                _dbg "Failed to find user path '$f'."
                 return 1
             fi
         fi
@@ -257,10 +257,10 @@ add_input_source() {
     v_input_sources_base[$i]="$2"
     v_input_sources_user[$i]="$3"
     index=$i
-    _dbg "added new input source #$i:"
-    _dbg "input source [$i]: user file = '$3'"
-    _dbg "input source [$i]: base path = '$2'"
-    _dbg "input source [$i]: real file = '$1'"
+    _dbg "Added new input source #$i:"
+    _dbg "Input source #$i: user file = '$3'"
+    _dbg "Input source #$i: base path = '$2'"
+    _dbg "Input source #$i: real file = '$1'"
     return 0
 }
 
@@ -280,13 +280,13 @@ find_input_source_real() {
         if [[ "$r" == "$1" ]]; then
             index=$i
             f="${v_input_sources_user[$i]}"
-            _dbg "found '$f' (real file '$r') at $i."
+            _dbg "Found user file '$f' (real file '$r') at #$i."
             return 0
         fi
         let i=i+1
     done
     index=-1
-    _dbg "failed on '$1'."
+    _dbg "Failed to find real file '$1'."
     return 1
 }
 
@@ -306,13 +306,13 @@ find_input_source_user() {
         if [[ "$f" == "$1" ]]; then
             r="${v_input_sources_real[$i]}"
             index=$i
-            _dbg "found '$f' (real file '$r') at $i."
+            _dbg "Found user file '$f' (real file '$r') at #$i."
             return 0
         fi
         let i=i+1
     done
     index=-1
-    _dbg "failed on '$1'."
+    _dbg "Failed to find user file '$1'."
     return 1
 }
 
@@ -321,7 +321,7 @@ find_input_source_user() {
 # returns: 0=success or 1=fail
 add_input_source_with_check() {
     local f="$1"
-    local index=$2
+    local -n index=$2
     local -i i
     local f
     local r
@@ -348,7 +348,7 @@ add_input_source_with_check() {
                 index=$i
             else
                 index=-1
-                _dbg "'$f' is bad."
+                _dbg "Failed to find user file '$f'."
                 return 1
             fi
         fi
@@ -364,11 +364,11 @@ add_source() {
     v_sources_base[$i]="$2"
     v_sources_user[$i]="$3"
     v_sources_parse[$i]="$4"
-    _dbg "added new source #$i:"
-    _dbg "source [$i]: parse     = $4"
-    _dbg "source [$i]: user name = '$3'"
-    _dbg "source [$i]: base path = '$2'"
-    _dbg "source [$i]: real name = '$1'"
+    _dbg "Added new source #$i:"
+    _dbg "Source #$i: parse     = $4"
+    _dbg "Source #$i: user name = '$3'"
+    _dbg "Source #$i: base path = '$2'"
+    _dbg "Source #$i: real name = '$1'"
     return 0
 }
 
@@ -388,13 +388,13 @@ find_source_real() {
         if [[ "$r" == "$1" ]]; then
             index=$i
             f="${v_sources_user[$i]}"
-            _dbg "found '$f' (real file '$r') at $i."
+            _dbg "Found user file '$f' (real file '$r') at #$i."
             return 0
         fi
         let i=i+1
     done
     index=-1
-    _dbg "failed on '$1'."
+    _dbg "Failed to find real file '$1'."
     return 1
 }
 
@@ -414,13 +414,13 @@ find_source_user() {
         if [[ "$f" == "$1" ]]; then
             index=$i
             r="${v_sources_real[$i]}"
-            _dbg "found '$f' (real file '$r') at $i."
+            _dbg "Found user file '$f' (real file '$r') at #$i."
             return 0
         fi
         let i=i+1
     done
     index=-1
-    _dbg "failed on '$1'."
+    _dbg "Failed to find user file '$1'."
     return 1
 }
 
@@ -429,7 +429,7 @@ add_prerequisite() {
     local -i i
     i=${#v_prerequisites[@]}
     v_prerequisites[$i]="$1"
-    _dbg "added new prerequisite #$i: '$1'"
+    _dbg "Added new prerequisite #$i: '$1'"
     return 0
 }
 
@@ -750,7 +750,7 @@ make_rule)
     if [[ ${#v_include_paths_user[@]} -eq 0 ]]; then
         add_include_dir_with_check '.' i
     fi
-    _dbg_dump_tables
+    _dbg_dump_vars
     make_rule
     write_rule "$v_output_name"
     ;;
