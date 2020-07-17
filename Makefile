@@ -33,14 +33,14 @@ empty:
 ############
 
 $(TARGETS):
-	$(MAKE) -w -C $(srcdir) destdir=$(shell realpath --relative-to $(srcdir) $(destdir)) BUILD=$@ DEBUG=$(DEBUG) all
+	$(MAKE) -w -C $(srcdir) destdir=$(shell realpath --relative-to $(srcdir) $(destdir)) TARGET=$@ DEBUG=$(DEBUG) all
 
 ##################
 ## TARGET-clean ##
 ##################
 
 $(foreach t,$(TARGETS),$(t)-clean):
-	$(MAKE) -w -C $(srcdir) destdir=$(shell realpath --relative-to $(srcdir) $(destdir)) BUILD=$(patsubst %-clean,%,$@) DEBUG=$(DEBUG) clean
+	$(MAKE) -w -C $(srcdir) destdir=$(shell realpath --relative-to $(srcdir) $(destdir)) TARGET=$(patsubst %-clean,%,$@) DEBUG=$(DEBUG) clean
 
 #########
 ## all ##

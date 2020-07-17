@@ -3,8 +3,8 @@
    This is free and unencumbered software released into the public domain.
    For more information, please refer to <http://unlicense.org>. */
 
-#ifndef _L_LIST_H_DEFINED
-#define _L_LIST_H_DEFINED
+#ifndef _L_LIST_H_INCLUDED
+#define _L_LIST_H_INCLUDED
 
 #include "defs.h"
 
@@ -28,4 +28,4 @@ void
         struct list_entry_t *p
     );
 
-#endif  // !_L_LIST_H_DEFINED
+#endif  // !_L_LIST_H_INCLUDED
