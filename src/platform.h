@@ -10,13 +10,27 @@
 
 #include <stdbool.h>
 
+#if defined (_WIN32) || defined(_WIN64)
+# define PATHSEP '\\'
+# define PATHSEPSTR "\\"
+#else
+# define PATHSEP '/'
+# define PATHSEPSTR "/"
+#endif
+
 // Returns "true" on success.
 bool check_path_abs (const char *path);
+
+// Returns string on success and "NULL" on fail. Result must be freed by caller.
+char *resolve_full_path (const char *path);
 
 // Returns "true" on success.
 bool check_path_exists (const char *path);
 
 // Returns "true" on success.
 bool check_file_exists (const char *path);
+
+// Returns string on success and "NULL" on fail. Result must be freed by caller.
+char *get_current_dir (void);
 
 #endif  // !_PLATFORM_H_INCLUDED

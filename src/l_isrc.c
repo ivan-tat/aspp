@@ -177,6 +177,7 @@ bool
 {
     char *real;
     bool ok;
+    unsigned len;
 
     real = NULL;
     ok = false;
@@ -210,22 +211,23 @@ bool
     {
         // relative path
         // first - check if it is already added
-        if (input_sources_find_user (self, user, result))
+        if (!input_sources_find_user (self, user, result))
         {
-            if (strlen (base_path_real) + 1 + strlen (user) >= PATH_MAX)
-            {
-                // Fail
-                _DBG ("Path is too large.");
-                goto _local_exit;
-            }
-            real = malloc (PATH_MAX);
+            // Success
+            ok = true;
+            //goto _local_exit;
+        }
+        else
+        {
+            len = strlen (base_path_real) + 1 + strlen (user) + 1;
+            real = malloc (len);
             if (!real)
             {
                 // Fail
                 _DBG_ ("Failed to allocate memory for %s.", "string");
                 goto _local_exit;
             }
-            snprintf (real, PATH_MAX, "%s/%s", base_path_real, user);
+            snprintf (real, len, "%s" PATHSEPSTR "%s", base_path_real, user);
             // trying real path - we are lucky
             if (check_file_exists (real))
             {

@@ -1,9 +1,7 @@
-//
-// l_inc.c -- include paths list structure.
-//
-// This is free and unencumbered software released into the public domain.
-// For more information, please refer to <http://unlicense.org>.
-//
+/* l_inc.c -- include paths list structure.
+
+   This is free and unencumbered software released into the public domain.
+   For more information, please refer to <http://unlicense.org>. */
 
 #include "defs.h"
 
@@ -179,6 +177,7 @@ bool
 {
     char *real;
     bool ok;
+    unsigned len;
 
     real = NULL;
     ok = false;
@@ -192,6 +191,7 @@ bool
     if (check_path_abs (user))
     {
         // absolute path
+        // first - check if it is already added
         real = (char *) user;
         if (include_paths_find_real (self, real, result))
         {
@@ -210,22 +210,25 @@ bool
     else
     {
         // relative path
-        if (include_paths_find_user (self, user, result))
+        // first - check if it is already added
+        if (!include_paths_find_user (self, user, result))
         {
-            if (strlen (base_path_real) + 1 + strlen (user) >= PATH_MAX)
-            {
-                // Fail
-                _DBG ("Path is too large.");
-                goto _local_exit;
-            }
-            real = malloc (PATH_MAX);
+            // Success
+            ok = true;
+            //goto _local_exit;
+        }
+        else
+        {
+            len = strlen (base_path_real) + 1 + strlen (user) + 1;
+            real = malloc (len);
             if (!real)
             {
                 // Fail
                 _DBG_ ("Failed to allocate memory for %s.", "string");
                 goto _local_exit;
             }
-            snprintf (real, PATH_MAX, "%s/%s", base_path_real, user);
+            snprintf (real, len, "%s" PATHSEPSTR "%s", base_path_real, user);
+            // trying real path - we are lucky
             if (check_path_exists (real))
             {
                 if (!include_paths_add (self, real, base_path_real, user, result))
@@ -251,6 +254,82 @@ _local_exit:
     if (!ok)
         if (result)
             *result = NULL;
+    return !ok;
+}
+
+// Returns "false" on success ("result" if presents is set to list entry).
+bool
+    include_paths_resolve_file
+    (
+        struct include_paths_t *self,
+        const char *user,
+        struct include_path_entry_t **result
+    )
+{
+    char *real;
+    char *base_path_real;
+    struct include_path_entry_t *p;
+    unsigned len;
+#if DEBUG == 1
+    unsigned i;
+#endif  // DEBUG == 1
+    bool ok;
+
+    if (!self || !user)
+    {
+        _DBG ("Bad arguments.");
+        return true;
+    }
+
+    ok = false;
+
+    len = PATH_MAX + 1 + strlen (user) + 1;
+    real = malloc (len);
+    if (!real)
+    {
+        // Fail
+        _DBG_ ("Failed to allocate memory for %s.", "string");
+        goto _local_exit;
+    }
+
+    p = (struct include_path_entry_t *) self->list.first;
+#if DEBUG == 1
+    i = 0;
+#endif  // DEBUG == 1
+    while (p)
+    {
+        base_path_real = p->real;
+        snprintf (real, len, "%s" PATHSEPSTR "%s", base_path_real, user);
+        _DBG_ ("Checking user file '%s' at path '%s'...", user, base_path_real);
+        if (check_file_exists (real))
+        {
+            // Success
+#if DEBUG == 1
+            _DBG_ ("Found user file '%s' (real file '%s') at #%u.", user, real, i);
+#endif  // DEBUG == 1
+            ok = true;
+            if (result)
+                *result = p;
+            goto _local_exit;
+        }
+        else
+        {
+            _DBG_ ("User file '%s' not found, skipped.", user);
+        }
+        p = (struct include_path_entry_t *) p->list_entry.next;
+#if DEBUG == 1
+        i++;
+#endif  // DEBUG == 1
+    }
+_local_exit:
+    if (real)
+        free (real);
+    if (!ok)
+    {
+        _DBG_ ("User file '%s' not resolved.", user);
+        if (result)
+            *result = NULL;
+    }
     return !ok;
 }
 

@@ -63,6 +63,15 @@ bool
         struct include_path_entry_t **result
     );
 
+// Returns "false" on success ("result" if presents is set to list entry).
+bool
+    include_paths_resolve_file
+    (
+        struct include_paths_t *self,
+        const char *user,
+        struct include_path_entry_t **result
+    );
+
 #if DEBUG == 1
 void
     _DBG_include_paths_dump
