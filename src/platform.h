@@ -21,16 +21,18 @@
 // Returns "true" on success.
 bool check_path_abs (const char *path);
 
-// Returns string on success and "NULL" on fail. Result must be freed by caller.
+// Returns string on success and "NULL" on fail. Check "errno" on fail.
+// Result must be freed by caller.
 char *resolve_full_path (const char *path);
 
-// Returns "true" on success.
+// Returns "true" on success. Check "errno" on fail.
 bool check_path_exists (const char *path);
 
-// Returns "true" on success.
+// Returns "true" on success. Check "errno" on fail.
 bool check_file_exists (const char *path);
 
-// Returns string on success and "NULL" on fail. Result must be freed by caller.
+// Returns string on success and "NULL" on fail. Check "errno" on fail.
+// Result must be freed by caller.
 char *get_current_dir (void);
 
 #endif  // !_PLATFORM_H_INCLUDED

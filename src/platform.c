@@ -36,7 +36,7 @@ char *resolve_full_path (const char *path)
 {
     char *s;
     unsigned len, i, j;
-    bool f;
+    bool last_sep, f;
 
     if (!path || path[0] == '\0')
     {
@@ -54,6 +54,7 @@ char *resolve_full_path (const char *path)
     if (!s)
         return (char *) NULL;
     strcpy (s, path);   // sizeof "s" > sizeof "path"
+
     // Replace '\\' or '/' with PATHSEP. From here all '/' in comments must be treated as PATHSEP.
     for (i = ROOT_START; s[i] != '\0'; i++)
 #if defined (_WIN32) || defined(_WIN64)
@@ -62,6 +63,8 @@ char *resolve_full_path (const char *path)
         if (s[i] == '\\')
 #endif
             s[i] = PATHSEP;
+
+    last_sep = s[len-1] == PATHSEP;     // remember if last char is PATHSEP to keep it
 
     // Replace '/.' with '/./', and '/..' with '/../' at end
     if (len >= (ROOT_START+2) && s[len-1] == '.')
@@ -122,7 +125,7 @@ char *resolve_full_path (const char *path)
                 return (char *) NULL;
             }
             j = i - 1;
-            while (j >= ROOT_START && s[j] != PATHSEP)
+            while (j > ROOT_START && s[j] != PATHSEP)
                 j--;
             // remove part of string [j, i+2]
             i += 3;
@@ -132,11 +135,26 @@ char *resolve_full_path (const char *path)
                 i++;
                 j++;
             }
+            s[j] = '\0';
             f = true;
         }
     } while (f);
 
-    return realloc (s, strlen (s)+1);   // + terminating zero (size is always smaller than source "s")
+    // restore PATHSEP at end if it was and remove it if there wasn't
+    len = strlen (s);
+    if (last_sep && len > ROOT_START && s[len-1] != PATHSEP)
+    {
+        s[len] = PATHSEP;
+        len++;
+        s[len] = '\0';
+    }
+    else if (!last_sep && len > ROOT_START && len != ROOT_START+1 && s[len-1] == PATHSEP)
+    {
+        len--;
+        s[len] = '\0';
+    }
+
+    return realloc (s, len+1);  // + terminating zero (strlen (s) <= strlen (path))
 }
 
 bool check_path_exists (const char *path)

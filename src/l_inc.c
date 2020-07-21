@@ -175,10 +175,11 @@ bool
         struct include_path_entry_t **result
     )
 {
-    char *real;
+    char *tmp, *real;
     bool ok;
     unsigned len;
 
+    tmp = NULL;
     real = NULL;
     ok = false;
 
@@ -192,18 +193,22 @@ bool
     {
         // absolute path
         // first - check if it is already added
-        real = (char *) user;
+        real = resolve_full_path (user);
+        if (!real)
+        {
+            // Fail
+            _DBG_ ("Failed to resolve %s.", "real path");
+            goto _local_exit;
+        }
         if (include_paths_find_real (self, real, result))
         {
             if (include_paths_add (self, real, "", user, result))
             {
                 // Fail
-                real = NULL;    // to prevent free()
                 goto _local_exit;
             }
         }
         // Success
-        real = NULL;    // to prevent free()
         ok = true;
         //goto _local_exit;
     }
@@ -220,14 +225,21 @@ bool
         else
         {
             len = strlen (base_path_real) + 1 + strlen (user) + 1;
-            real = malloc (len);
-            if (!real)
+            tmp = malloc (len);
+            if (!tmp)
             {
                 // Fail
                 _DBG_ ("Failed to allocate memory for %s.", "string");
                 goto _local_exit;
             }
-            snprintf (real, len, "%s" PATHSEPSTR "%s", base_path_real, user);
+            snprintf (tmp, len, "%s" PATHSEPSTR "%s", base_path_real, user);
+            real = resolve_full_path (tmp);
+            if (!real)
+            {
+                // Fail
+                _DBG_ ("Failed to resolve %s.", "real path");
+                goto _local_exit;
+            }
             // trying real path - we are lucky
             if (check_path_exists (real))
             {
@@ -249,6 +261,8 @@ bool
         }
     }
 _local_exit:
+    if (tmp)
+        free (tmp);
     if (real)
         free (real);
     if (!ok)
