@@ -158,6 +158,12 @@ bool
 }
 
 // Returns "false" on success.
+bool print_target_names (FILE *stream)
+{
+    return target_names_print (&v_target_names, stream);
+}
+
+// Returns "false" on success.
 bool
     find_include_path_real
     (
@@ -334,6 +340,90 @@ NL
     );
 }
 
+bool parse_source (struct source_entry_t *src)
+{
+    _DBG_ ("TODO" NL "source.real='%s'," NL "source.base='%s'" NL "source.user='%s'", src->real, src->base, src->user);
+    return false;       // Success
+}
+
+// Returns "false" on success.
+bool make_rule (void)
+{
+    struct input_source_entry_t *isrc;
+    struct source_entry_t *src, *last;
+
+    for (isrc = (struct input_source_entry_t *) v_input_sources.list.first; isrc;
+         isrc = (struct input_source_entry_t *) isrc->list_entry.next)
+    {
+        if (add_source (isrc->real, isrc->base, isrc->user, SRCFL_PARSE, NULL))
+            return true;        // Fail
+    }
+
+    if (v_sources.list.count)
+    {
+        src  = (struct source_entry_t *) v_sources.list.first;
+        last = (struct source_entry_t *) v_sources.list.last;
+        while (src != (struct source_entry_t *) last->list_entry.next)
+        {
+            while (src != (struct source_entry_t *) last->list_entry.next)
+            {
+                if (src->flags & SRCFL_PARSE)
+                {
+                    if (!parse_source (src))
+                    {
+                        if (add_prerequisite (src->user, NULL))
+                            return true;        // Fail
+                    }
+                    else
+                    {
+                        show_errors ();
+                        exit_on_errors ();
+                    }
+                }
+                else
+                {
+                    if (add_prerequisite (src->user, NULL))
+                            return true;        // Fail
+                }
+                src = (struct source_entry_t *) src->list_entry.next;
+            }
+            src = (struct source_entry_t *) last->list_entry.next;
+            last = (struct source_entry_t *) v_sources.list.last;
+        }
+    }
+
+    return false;       // Success
+}
+
+// Returns "false" on success.
+bool write_rule (const char *name)
+{
+    FILE *f;
+
+    f = fopen (name, "w");
+    if (!f)
+    {
+        _DBG_ ("Failed to open file for %s.", "writing");
+        return true;   // Fail
+    }
+
+    if (print_target_names (f))
+        return true;    // Fail
+
+    if (fprintf (f, ": ") < 0)
+        return true;    // Fail
+
+    if (print_prerequisites (f))
+        return true;    // Fail
+
+    if (fprintf (f, NL) < 0)
+        return true;    // Fail
+
+    fclose (f);
+
+    return false;       // Success
+}
+
 int main (int argc, char **argv)
 {
     unsigned i;
@@ -464,7 +554,6 @@ int main (int argc, char **argv)
     case ACT_SHOW_HELP:
         show_title ();
         show_help ();
-        exit (EXIT_SUCCESS);
         break;
     case ACT_MAKE_RULE:
         if (!v_target_names.list.count)
@@ -493,13 +582,15 @@ int main (int argc, char **argv)
                 exit (EXIT_FAILURE);
         }
         _DBG_dump_vars ();
-//        make_rule ();
-//        write_rule (v_output_name);
+        if (make_rule ())
+            error_exit ("Failed to parse sources.");
+        if (write_rule (v_output_name))
+            error_exit ("Failed to write to output file.");
         break;
     default:
         error_exit ("Action %u is not implemented yet.", v_act);
         break;
     }
 
-    return EXIT_FAILURE;
+    return EXIT_SUCCESS;
 }

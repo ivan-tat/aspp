@@ -63,6 +63,37 @@ bool
     return false;
 }
 
+bool
+    target_names_print
+    (
+        struct target_names_t *self,
+        FILE *stream
+    )
+{
+    const struct target_name_entry_t *p;
+    bool f;
+
+    if (!self || !stream)
+    {
+        _DBG ("Bad arguments.");
+        return true;
+    }
+
+    f = false;
+    for (p = (struct target_name_entry_t *) self->list.first; p;
+         p = (struct target_name_entry_t *) p->list_entry.next)
+    {
+        if (fprintf (stream, f ? " %s" : "%s", p->name) < 0)
+        {
+            _DBG ("Failed to write to output file.");
+            return true;
+        }
+        f = true;
+    }
+
+    return false;
+}
+
 #if DEBUG == 1
 void
     _DBG_target_names_dump

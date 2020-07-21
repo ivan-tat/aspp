@@ -9,6 +9,7 @@
 #include "defs.h"
 
 #include <stdbool.h>
+#include <stdio.h>
 #include "l_list.h"
 
 // Target names list structure
@@ -31,6 +32,14 @@ bool
         struct target_names_t *self,
         const char *name,
         struct target_name_entry_t **result
+    );
+
+// Returns "false" on success.
+bool
+    target_names_print
+    (
+        struct target_names_t *self,
+        FILE *stream
     );
 
 #if DEBUG == 1

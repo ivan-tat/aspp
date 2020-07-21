@@ -240,6 +240,8 @@ bool
                 _DBG_ ("Failed to resolve %s.", "real path");
                 goto _local_exit;
             }
+            free (tmp);
+            tmp = NULL; // to prevent free() on exit
             // trying real path - we are lucky
             if (check_file_exists (real))
             {

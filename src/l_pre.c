@@ -72,6 +72,7 @@ bool
     )
 {
     const struct prerequisite_entry_t *p;
+    bool f;
 
     if (!self || !stream)
     {
@@ -79,13 +80,17 @@ bool
         return true;
     }
 
+    f = false;
     for (p = (struct prerequisite_entry_t *) self->list.first; p;
          p = (struct prerequisite_entry_t *) p->list_entry.next)
-        if (fprintf (stream, " %s", p->prerequisite) < 0)
+    {
+        if (fprintf (stream, f ? " %s" : "%s", p->prerequisite) < 0)
         {
             _DBG ("Failed to write to output file.");
             return true;
         }
+        f = true;
+    }
 
     return false;
 }
