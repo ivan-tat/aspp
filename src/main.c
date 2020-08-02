@@ -16,8 +16,13 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <locale.h>
+#include <ctype.h>
+#include "asmfile.h"
 #include "debug.h"
 #include "l_err.h"
+#include "l_ifile.h"
 #include "l_inc.h"
 #include "l_isrc.h"
 #include "l_list.h"
@@ -340,11 +345,336 @@ NL
     );
 }
 
+char *_skip_blanks (char *s)
+{
+    if (s) while (*s != '\0' && isblank(*s)) s++;
+    return s;
+}
+
+char *_skip_word (char *s)
+{
+    if (s)
+    {
+        if (*s == '_' || isalpha(*s))
+        {
+            s++;
+            while (*s != '\0' && isalnum(*s)) s++;
+        }
+    }
+    return s;
+}
+
+char *_skip_string (char *s)
+{
+    char *p;
+    p = s;
+    if (p)
+    {
+        if (*p == '"')
+        {
+            p++;        // Skip opening double quote character
+            while (*p != '\0' && *p != '"') p++;
+            if (*p == '"')
+                p++;    // Skip closing double quote character
+            else
+                p = s;  // Fail
+        }
+    }
+    return p;
+}
+
+// Result must be freed by caller.
+char *_make_path (const char *a, const char *b)
+{
+    char *result;
+
+    result = malloc (strlen (a) + 1 + strlen (b) + 1);  // including terminating zero
+    if (result)
+        sprintf (result, "%s/%s", a, b);
+    else
+        _DBG_ ("Failed to allocate memory for %s.", "string");
+    return result;
+}
+
+// Returns "true" on success.
+bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flags)
+{
+    bool ok;
+    char *tmp;
+    char *src_base;
+    char *src_base_tmp;
+    char *inc_real, *inc_base, *inc_user;
+    char *inc_real_tmp, *inc_base_tmp, *inc_user_tmp;
+    char *inc_real_res;
+    struct include_path_entry_t *resolved;
+
+    ok = false;
+
+    // free on exit:
+    src_base_tmp = (char *) NULL;
+    inc_real_tmp = (char *) NULL;
+    inc_base_tmp = (char *) NULL;
+    inc_user_tmp = (char *) NULL;
+    inc_real_res = (char *) NULL;
+
+    inc_user = f_loc;
+    if (check_path_abs (f_loc))
+    {
+        // absolute source's path - use it as is
+        _DBG_ ("Checking '%s'...", f_loc);
+        inc_real = f_loc;
+        inc_base_tmp = get_dir_name (f_loc);
+        if (!inc_base_tmp)
+        {
+            // Fail
+            _DBG_ ("Failed to allocate memory for %s.", "string");
+            goto _local_exit;
+        }
+        inc_base = inc_base_tmp;
+        if (!check_file_exists (f_loc))
+            inc_flags &= ~SRCFL_PARSE;
+        if (add_source (inc_real, inc_base, inc_user, inc_flags, NULL))
+        {
+            // Fail
+            goto _local_exit;
+        }
+        // Success
+        ok = true;
+    }
+    else
+    {
+        // relative source's path - try to resolve real name
+        src_base_tmp = get_dir_name (src->user);
+        if (!src_base_tmp)
+        {
+            // Fail
+            _DBG_ ("Failed to allocate memory for %s.", "string");
+            goto _local_exit;
+        }
+        src_base = src_base_tmp;
+        if (check_path_abs (src->user))
+        {
+            inc_real_tmp = _make_path (src_base, src->user);
+            if (!inc_real_tmp)
+            {
+                // Fail
+                goto _local_exit;
+            }
+            inc_real = inc_real_tmp;
+            inc_base = src_base;
+        }
+        else
+        {
+            tmp = get_dir_name (src->real);
+            if (!tmp)
+            {
+                // Fail
+                _DBG_ ("Failed to allocate memory for %s.", "string");
+                goto _local_exit;
+            }
+            inc_real_tmp = _make_path (tmp, f_loc);
+            free (tmp);
+            if (!inc_real_tmp)
+            {
+                // Fail
+                goto _local_exit;
+            }
+            inc_real = inc_real_tmp;
+            inc_base = src->base;
+            if (strcmp (src_base, ".") != 0)
+            {
+                inc_user_tmp = _make_path (src_base, inc_user);
+                if (!inc_user_tmp)
+                {
+                    // Fail
+                    goto _local_exit;
+                }
+                inc_user = inc_user_tmp;
+            }
+        }
+        if (check_file_exists (inc_real))
+        {
+            if (add_source (inc_real, inc_base, inc_user, inc_flags, NULL))
+            {
+                // Fail
+                goto _local_exit;
+            }
+            // Success
+        }
+        else
+        {
+            _DBG_ ("'%s' not found, resolving...", f_loc);
+            if (resolve_file (f_loc, &resolved))
+            {
+                inc_real_res = _make_path (resolved->real, f_loc);
+                if (!inc_real_res)
+                {
+                    // Fail
+                    _DBG_ ("Failed to allocate memory for %s.", "string");
+                    goto _local_exit;
+                }
+                inc_real = inc_real_res;
+                inc_base = resolved->real;
+                inc_user = f_loc;
+            }
+            else
+            {
+                inc_flags = 0;
+            }
+            if (add_source (inc_real, inc_base, inc_user, 0, NULL))
+            {
+                // Fail
+                goto _local_exit;
+            }
+            // Success
+        }
+        // Success
+        ok = true;
+    }
+_local_exit:
+    if (src_base_tmp)
+        free (src_base_tmp);
+    if (inc_real_tmp)
+        free (inc_real_tmp);
+    if (inc_base_tmp)
+        free (inc_base_tmp);
+    if (inc_user_tmp)
+        free (inc_user_tmp);
+    if (inc_real_res)
+        free (inc_real_res);
+
+    return ok;
+}
+
+#define TEXT_BUF_SIZE 15
+// Returns "false" on success.
 bool parse_source (struct source_entry_t *src)
 {
-    _DBG_ ("TODO" NL "source.real='%s'," NL "source.base='%s'" NL "source.user='%s'", src->real, src->base, src->user);
-    return false;       // Success
+    bool ok;
+    struct asm_file_t file;
+    char *t;
+    char buf[TEXT_BUF_SIZE+1];
+    char *s, *endp, *namep;
+    unsigned tl, len, sl, namelen;
+    char *f_loc, *f_loc_tmp;
+    unsigned inc_flags;
+
+    _DBG_ (
+        "Source real file: '%s'," NL
+        "Source base path: '%s'" NL
+        "Source user file: '%s'",
+        src->real, src->base, src->user);
+
+    ok = false;
+
+    // Free on exit (_local_exit):
+    asm_file_clear (&file);
+    t = (char *) NULL;
+
+    if (!asm_file_load (&file, src->user))
+    {
+        // Fail
+        goto _local_exit;
+    }
+
+    tl = 0;
+    while (asm_file_next_line (&file, &s, &len))
+    {
+        // Free on exit (_loop_exit):
+        f_loc_tmp = (char *) NULL;
+
+        if (tl < len + 1)
+        {
+            tl = len + 1;       // + terminating zero
+            if (t)
+                free (t);
+            t = malloc (tl);
+            if (!t)
+            {
+                // Fail
+                _DBG_ ("Failed to allocate memory for %s.", "string");
+                goto _loop_exit;
+            }
+        }
+        memcpy (t, s, len);
+        t[len] = '\0';
+
+        // RegEx pattern: [[:space:]]+(include|incbin)[[:space:]]+"[^[:space:]]+"
+        // The rest of a line is not analized.
+        s = t;
+
+        // blanks
+        endp = _skip_blanks (s);
+        if (s == endp || *endp == '\0')
+            goto _skip_line;
+        // assembler directive
+        s = endp;
+        endp = _skip_word (s);
+        if (s == endp || *endp == '\0')
+            goto _skip_line;
+        // (save it)
+        sl = endp - s;
+        if (sl > TEXT_BUF_SIZE)
+            sl = TEXT_BUF_SIZE;
+        memcpy (buf, s, sl);
+        buf[sl] = '\0';
+        // (check it)
+        if (!strcasecmp (buf, "incbin"))
+            inc_flags = 0;
+        else if (!strcasecmp (buf, "include"))
+            inc_flags = SRCFL_PARSE;
+        else
+            goto _skip_line;
+        // blanks
+        s = endp;
+        endp = _skip_blanks (s);
+        if (s == endp || *endp == '\0')
+            goto _skip_line;
+        // string
+        s = endp;
+        endp = _skip_string (s);
+        if (s == endp)
+            goto _skip_line;
+        // (save it)
+        namep = s + 1;          // skip opening double quotes character
+        namelen = endp - s - 2; // excluding double quotes characters
+        f_loc_tmp = malloc (namelen + 1);       // including terminating zero
+        if (!f_loc_tmp)
+        {
+            // Fail
+            _DBG_ ("Failed to allocate memory for %s.", "string");
+            goto _loop_exit;
+        }
+        memcpy (f_loc_tmp, namep, namelen);
+        f_loc_tmp[namelen] = '\0';
+        f_loc = f_loc_tmp;
+        // (done)
+
+        if (!process_include (src, f_loc, inc_flags))
+        {
+            // Fail
+            goto _loop_exit;
+        }
+
+        if (f_loc_tmp)
+            free (f_loc_tmp);
+        f_loc_tmp = (char *) NULL;
+    _skip_line:;
+    }
+
+    ok = true;
+    goto _local_exit;
+
+_loop_exit:
+    if (f_loc_tmp)
+        free (f_loc_tmp);
+_local_exit:
+    asm_file_free (&file);
+    if (t)
+        free (t);
+    return !ok;
 }
+#undef TEXT_BUF_SIZE
 
 // Returns "false" on success.
 bool make_rule (void)
@@ -403,8 +733,9 @@ bool write_rule (const char *name)
     f = fopen (name, "w");
     if (!f)
     {
+        // Fail
         _DBG_ ("Failed to open file for %s.", "writing");
-        return true;   // Fail
+        return true;
     }
 
     if (print_target_names (f))
@@ -427,6 +758,8 @@ bool write_rule (const char *name)
 int main (int argc, char **argv)
 {
     unsigned i;
+
+    setlocale (LC_CTYPE, "C");
 
     if (argc == 1)
         error_exit ("No parameters. %s" NL, HELP_HINT);

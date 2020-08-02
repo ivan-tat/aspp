@@ -35,4 +35,8 @@ bool check_file_exists (const char *path);
 // Result must be freed by caller.
 char *get_current_dir (void);
 
+// Returns string on success and "NULL" on fail. Check "errno" on fail.
+// Result must be freed by caller.
+char *get_dir_name (const char *path);
+
 #endif  // !_PLATFORM_H_INCLUDED

@@ -9,6 +9,7 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <libgen.h>
 #include <ctype.h>
 #include <errno.h>
 #include <string.h>
@@ -200,4 +201,17 @@ bool check_file_exists (const char *path)
 char *get_current_dir (void)
 {
     return getcwd (NULL, 0);
+}
+
+char *get_dir_name (const char *path)
+{
+    char *pathc, *d, *result;
+
+    pathc = strdup (path);
+    if (!pathc)
+        return (char *) NULL;
+    d = dirname (pathc);
+    result = strdup (d);
+    free (pathc);
+    return result;
 }

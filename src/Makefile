@@ -99,7 +99,7 @@ endif
 
 MAINSRC		= main.c
 MAINEXEC	= aspp$(EXECEXT)
-SRCS		= debug.c l_err.c l_inc.c l_isrc.c l_list.c l_pre.c l_src.c l_tgt.c platform.c
+SRCS		= asmfile.c debug.c l_err.c l_ifile.c l_inc.c l_isrc.c l_list.c l_pre.c l_src.c l_tgt.c platform.c
 CFLAGS		+= -Wall -DDEBUG=$(DEBUG)
 DEPCC		= $(CC)
 DEPCFLAGS	= -MM
@@ -148,6 +148,9 @@ DEPS+=$(BUILDDIR)/$(patsubst %$(suffix $(MAINSRC)),%.$(DEPEXT),$(MAINSRC))
 $(BUILDDIR)/$(MAINEXEC): $(MAINSRC) $(OBJS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -o $@ $(MAINSRC) $(OBJS)
+ifeq ($(DEBUG),0)
+	strip $@
+endif
 
 #########
 ## all ##
@@ -161,6 +164,7 @@ all: $(BUILDDIR)/$(MAINEXEC)
 
 clean:
 	$(RM) $(DEPS) $(OBJS) $(BUILDDIR)/$(MAINEXEC)
+# unsafe if BUILDDIR is source directory:
 #	test -d $(BUILDDIR) && $(RM) -r $(BUILDDIR) || true
 
 ##################
@@ -171,7 +175,7 @@ ifneq ($(MAKECMDGOALS),)
  ifeq ($(sort \
  $(filter empty,$(MAKECMDGOALS)) \
  $(filter clean,$(MAKECMDGOALS)) \
- ),) 
+ ),)
   include $(DEPS)
  endif
 endif
