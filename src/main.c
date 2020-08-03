@@ -138,179 +138,6 @@ void error_exit (const char *format, ...)
     exit (EXIT_FAILURE);
 }
 
-// Returns "false" on success.
-bool
-    add_include_path
-    (
-        const char *real,
-        const char *base,
-        const char *user,
-        struct include_path_entry_t **result
-    )
-{
-    return include_paths_add (&v_include_paths, real, base, user, result);
-}
-
-// Returns "false" on success.
-bool
-    add_target_name
-    (
-        const char *user,
-        struct target_name_entry_t **result
-    )
-{
-    return target_names_add (&v_target_names, user, result);
-}
-
-// Returns "false" on success.
-bool print_target_names (FILE *stream)
-{
-    return target_names_print (&v_target_names, stream);
-}
-
-// Returns "false" on success.
-bool
-    find_include_path_real
-    (
-        const char *real,
-        struct include_path_entry_t **result
-    )
-{
-    return include_paths_find_real (&v_include_paths, real, result);
-}
-
-// Returns "false" on success.
-bool
-    find_include_path_user
-    (
-        const char *user,
-        struct include_path_entry_t **result
-    )
-{
-    return include_paths_find_user (&v_include_paths, user, result);
-}
-
-// Returns "false" on success.
-bool
-    add_include_dir_with_check
-    (
-        const char *user,
-        struct include_path_entry_t **result
-    )
-{
-    return include_paths_add_with_check (&v_include_paths, user, v_base_path_real, result);
-}
-
-// Returns "false" on success.
-bool
-    resolve_file
-    (
-        const char *user,
-        struct include_path_entry_t **result
-    )
-{
-    return include_paths_resolve_file (&v_include_paths, user, result);
-}
-
-// Returns "false" on success.
-bool
-    add_input_source
-    (
-        const char *real,
-        const char *base,
-        const char *user,
-        struct input_source_entry_t **result
-    )
-{
-    return input_sources_add (&v_input_sources, real, base, user, result);
-}
-
-// Returns "false" on success.
-bool
-    find_input_source_real
-    (
-        const char *real,
-        struct input_source_entry_t **result
-    )
-{
-    return input_sources_find_real (&v_input_sources, real, result);
-}
-
-// Returns "false" on success.
-bool
-    find_input_source_user
-    (
-        const char *user,
-        struct input_source_entry_t **result
-    )
-{
-    return input_sources_find_user (&v_input_sources, user, result);
-}
-
-// Returns "false" on success.
-bool
-    add_input_source_with_check
-    (
-        const char *user,
-        struct input_source_entry_t **result
-    )
-{
-    return input_sources_add_with_check (&v_input_sources, user, v_base_path_real, result);
-}
-
-// Returns "false" on success.
-bool
-    add_source
-    (
-        const char *real,
-        const char *base,
-        const char *user,
-        unsigned flags,
-        struct source_entry_t **result
-    )
-{
-    return sources_add (&v_sources, real, base, user, flags, result);
-}
-
-// Returns "false" on success.
-bool
-    find_source_real
-    (
-        const char *real,
-        struct source_entry_t **result
-    )
-{
-    return sources_find_real (&v_sources, real, result);
-}
-
-// Returns "false" on success.
-bool
-    find_source_user
-    (
-        const char *user,
-        struct source_entry_t **result
-    )
-{
-    return sources_find_user (&v_sources, user, result);
-}
-
-// Returns "false" on success.
-bool
-    add_prerequisite
-    (
-        const char *prerequisite,
-        struct prerequisite_entry_t **result
-    )
-{
-    return prerequisites_add (&v_prerequisites, prerequisite, result);
-}
-
-// Returns "false" on success.
-bool print_prerequisites (FILE *stream)
-{
-    return prerequisites_print (&v_prerequisites, stream);
-}
-
 void show_title (void)
 {
     fprintf (stdout,
@@ -433,7 +260,7 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
         inc_base = inc_base_tmp;
         if (!check_file_exists (f_loc))
             inc_flags &= ~SRCFL_PARSE;
-        if (add_source (inc_real, inc_base, inc_user, inc_flags, NULL))
+        if (sources_add (&v_sources, inc_real, inc_base, inc_user, inc_flags, NULL))
         {
             // Fail
             goto _local_exit;
@@ -494,7 +321,7 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
         }
         if (check_file_exists (inc_real))
         {
-            if (add_source (inc_real, inc_base, inc_user, inc_flags, NULL))
+            if (sources_add (&v_sources, inc_real, inc_base, inc_user, inc_flags, NULL))
             {
                 // Fail
                 goto _local_exit;
@@ -504,7 +331,7 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
         else
         {
             _DBG_ ("'%s' not found, resolving...", f_loc);
-            if (resolve_file (f_loc, &resolved))
+            if (include_paths_resolve_file (&v_include_paths, f_loc, &resolved))
             {
                 inc_real_res = _make_path (resolved->real, f_loc);
                 if (!inc_real_res)
@@ -521,7 +348,7 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
             {
                 inc_flags = 0;
             }
-            if (add_source (inc_real, inc_base, inc_user, 0, NULL))
+            if (sources_add (&v_sources, inc_real, inc_base, inc_user, 0, NULL))
             {
                 // Fail
                 goto _local_exit;
@@ -685,7 +512,7 @@ bool make_rule (void)
     for (isrc = (struct input_source_entry_t *) v_input_sources.list.first; isrc;
          isrc = (struct input_source_entry_t *) isrc->list_entry.next)
     {
-        if (add_source (isrc->real, isrc->base, isrc->user, SRCFL_PARSE, NULL))
+        if (sources_add (&v_sources, isrc->real, isrc->base, isrc->user, SRCFL_PARSE, NULL))
             return true;        // Fail
     }
 
@@ -701,7 +528,7 @@ bool make_rule (void)
                 {
                     if (!parse_source (src))
                     {
-                        if (add_prerequisite (src->user, NULL))
+                        if (prerequisites_add (&v_prerequisites, src->user, NULL))
                             return true;        // Fail
                     }
                     else
@@ -712,7 +539,7 @@ bool make_rule (void)
                 }
                 else
                 {
-                    if (add_prerequisite (src->user, NULL))
+                    if (prerequisites_add (&v_prerequisites, src->user, NULL))
                             return true;        // Fail
                 }
                 src = (struct source_entry_t *) src->list_entry.next;
@@ -738,13 +565,13 @@ bool write_rule (const char *name)
         return true;
     }
 
-    if (print_target_names (f))
+    if (target_names_print (&v_target_names, f))
         return true;    // Fail
 
     if (fprintf (f, ": ") < 0)
         return true;    // Fail
 
-    if (print_prerequisites (f))
+    if (prerequisites_print (&v_prerequisites, f))
         return true;    // Fail
 
     if (fprintf (f, NL) < 0)
@@ -792,7 +619,7 @@ int main (int argc, char **argv)
                     exit (EXIT_FAILURE);
                 break;
             }
-            if (add_include_dir_with_check (argv[i], NULL))
+            if (include_paths_add_with_check (&v_include_paths, argv[i], v_base_path_real, NULL))
                 exit (EXIT_FAILURE);
             i++;
         }
@@ -823,7 +650,7 @@ int main (int argc, char **argv)
                     exit (EXIT_FAILURE);
                 break;
             }
-            if (add_target_name (argv[i], NULL))
+            if (target_names_add (&v_target_names, argv[i], NULL))
                 exit (EXIT_FAILURE);
             i++;
         }
@@ -842,7 +669,7 @@ int main (int argc, char **argv)
             }
             else
             {
-                if (add_input_source_with_check (argv[i], NULL))
+                if (input_sources_add_with_check (&v_input_sources, argv[i], v_base_path_real, NULL))
                     error_exit ("Input source file '%s' was not found." NL, argv[i]);
             }
             i++;
@@ -911,7 +738,7 @@ int main (int argc, char **argv)
         }
         if (!v_include_paths.list.count)
         {
-            if (add_include_dir_with_check (".", NULL))
+            if (include_paths_add_with_check (&v_include_paths, ".", v_base_path_real, NULL))
                 exit (EXIT_FAILURE);
         }
         _DBG_dump_vars ();
