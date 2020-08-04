@@ -217,7 +217,7 @@ char *_make_path (const char *a, const char *b)
 
     result = malloc (strlen (a) + 1 + strlen (b) + 1);  // including terminating zero
     if (result)
-        sprintf (result, "%s/%s", a, b);
+        sprintf (result, "%s" PATHSEPSTR "%s", a, b);
     else
         _DBG_ ("Failed to allocate memory for %s.", "string");
     return result;
@@ -281,7 +281,14 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
         src_base = src_base_tmp;
         if (check_path_abs (src->user))
         {
-            inc_real_tmp = _make_path (src_base, src->user);
+            tmp = _make_path (src_base, src->user);
+            if (!tmp)
+            {
+                // Fail
+                goto _local_exit;
+            }
+            inc_real_tmp = resolve_full_path (tmp);
+            free (tmp);
             if (!inc_real_tmp)
             {
                 // Fail
@@ -306,11 +313,26 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
                 // Fail
                 goto _local_exit;
             }
+            tmp = inc_real_tmp;
+            inc_real_tmp = resolve_full_path (tmp);
+            free (tmp);
+            if (!inc_real_tmp)
+            {
+                // Fail
+                goto _local_exit;
+            }
             inc_real = inc_real_tmp;
             inc_base = src->base;
             if (strcmp (src_base, ".") != 0)
             {
-                inc_user_tmp = _make_path (src_base, inc_user);
+                tmp = _make_path (src_base, inc_user);
+                if (!tmp)
+                {
+                    // Fail
+                    goto _local_exit;
+                }
+                inc_user_tmp = resolve_full_path (tmp);
+                free (tmp);
                 if (!inc_user_tmp)
                 {
                     // Fail
@@ -333,11 +355,17 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
             _DBG_ ("'%s' not found, resolving...", f_loc);
             if (include_paths_resolve_file (&v_include_paths, f_loc, &resolved))
             {
-                inc_real_res = _make_path (resolved->real, f_loc);
+                tmp = _make_path (resolved->real, f_loc);
+                if (!tmp)
+                {
+                    // Fail
+                    goto _local_exit;
+                }
+                inc_real_res = resolve_full_path (tmp);
+                free (tmp);
                 if (!inc_real_res)
                 {
                     // Fail
-                    _DBG_ ("Failed to allocate memory for %s.", "string");
                     goto _local_exit;
                 }
                 inc_real = inc_real_res;
@@ -387,10 +415,10 @@ bool parse_source (struct source_entry_t *src)
     unsigned inc_flags;
 
     _DBG_ (
-        "Source real file: '%s'," NL
+        "Source user file: '%s'" NL
         "Source base path: '%s'" NL
-        "Source user file: '%s'",
-        src->real, src->base, src->user);
+        "Source real file: '%s'",
+        src->user, src->base, src->real);
 
     ok = false;
 

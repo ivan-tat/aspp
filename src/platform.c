@@ -54,7 +54,7 @@ char *resolve_full_path (const char *path)
     s = malloc (len+3); // + terminating zero + 2 chars (=3)
     if (!s)
         return (char *) NULL;
-    strcpy (s, path);   // sizeof "s" > sizeof "path"
+    strcpy (s, path);   // fine (sizeof (s) > sizeof (path))
 
     // Replace '\\' or '/' with PATHSEP. From here all '/' in comments must be treated as PATHSEP.
     for (i = ROOT_START; s[i] != '\0'; i++)
@@ -67,19 +67,7 @@ char *resolve_full_path (const char *path)
 
     last_sep = s[len-1] == PATHSEP;     // remember if last char is PATHSEP to keep it
 
-    // Replace '/.' with '/./', and '/..' with '/../' at end
-    if (len >= (ROOT_START+2) && s[len-1] == '.')
-    {
-        if ((len >= (ROOT_START+3) && s[len-3] == PATHSEP && s[len-2] == '.')
-        ||  (s[len-2] == PATHSEP))
-        {
-            s[len] = PATHSEP;
-            len++;
-            s[len] = '\0';
-        }
-    }
-
-    // Replace all "//" with '/'
+    // Replace multiple '/' with single '/'
     i = ROOT_START;
     j = ROOT_START;
     while (s[j] != '\0')
@@ -93,6 +81,18 @@ char *resolve_full_path (const char *path)
     }
     s[i] = '\0';
     len = i;
+
+    // Replace '/.' with '/./', and '/..' with '/../' at end
+    if (len >= (ROOT_START+2) && s[len-1] == '.')
+    {
+        if ((len >= (ROOT_START+3) && s[len-3] == PATHSEP && s[len-2] == '.')
+        ||  (s[len-2] == PATHSEP))
+        {
+            s[len] = PATHSEP;
+            len++;
+            s[len] = '\0';
+        }
+    }
 
     // Replace "/./" with '/'
     i = ROOT_START;
@@ -141,7 +141,7 @@ char *resolve_full_path (const char *path)
         }
     } while (f);
 
-    // restore PATHSEP at end if it was and remove it if there wasn't
+    // Restore '/' at end if it was and remove it if there wasn't
     len = strlen (s);
     if (last_sep && len > ROOT_START && s[len-1] != PATHSEP)
     {
