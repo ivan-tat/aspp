@@ -22,39 +22,54 @@ bool
         struct error_entry_t **result
     )
 {
+    bool ok;
     struct error_entry_t *p;
     char *p_msg;
+
+    ok = false;
+    p = (struct error_entry_t *) NULL;
+    p_msg = (char *) NULL;
 
     if (!self || !msg)
     {
         _DBG ("Bad arguments.");
-        return true;
+        goto _local_exit;
     }
 
     p = malloc (sizeof (struct error_entry_t));
-    p_msg = strdup (msg);
-
-    if (!p || !p_msg)
+    if (!p)
     {
-        if (p)
-            free (p);
-        else
-            _DBG_ ("Failed to allocate memory for %s.", "error entry");
-        if (p_msg)
-            free (p_msg);
-        else
-            _DBG_ ("Failed to allocate memory for %s.", "string");
-        return true;
+        _perror ("malloc");
+        goto _local_exit;
+    }
+
+    p_msg = strdup (msg);
+    if (!p)
+    {
+        _perror ("strdup");
+        goto _local_exit;
     }
 
     p->list_entry.next = NULL;
     p->msg = p_msg;
 
     list_add_entry ((struct list_t *) self,  (struct list_entry_t *) p);
+    ok = true;
 
+_local_exit:
+    if (!ok)
+    {
+        if (p)
+        {
+            free (p);
+            p = (struct error_entry_t *) NULL;
+        }
+        if (p_msg)
+            free (p_msg);
+    }
     if (result)
         *result = p;
-    return false;
+    return !ok;
 }
 
 bool
@@ -67,25 +82,35 @@ bool
         va_list ap
     )
 {
+    bool ok;
     char *s;
-    bool status;
+
+    ok = false;
+    s = (char *) NULL;
 
     if (!self || !bufsize || !format)
     {
         _DBG ("Bad arguments.");
-        return true;
+        goto _local_exit;
     }
 
     s = malloc (bufsize);
     if (!s)
     {
-        _DBG_ ("Failed to allocate memory for %s.", "string buffer");
-        return true;
+        _perror ("malloc");
+        goto _local_exit;
     }
     vsnprintf (s, bufsize, format, ap);
-    status = errors_add (self, s, result);
-    free (s);
-    return status;
+    if (!errors_add (self, s, result))
+        ok = true;
+
+_local_exit:
+    if (s)
+        free (s);
+    if (!ok)
+        if (result)
+            *result = (struct error_entry_t *) NULL;
+    return !ok;
 }
 
 bool
@@ -98,18 +123,26 @@ bool
         ...
     )
 {
+    bool ok;
     va_list ap;
-    bool status;
 
     va_start (ap, format);
+
+    ok = false;
 
     if (!self || !bufsize || !format)
     {
         _DBG ("Bad arguments.");
-        return true;
+        goto _local_exit;
     }
 
-    status = errors_add_vfmt (self, result, bufsize, format, ap);
+    if (!errors_add_vfmt (self, result, bufsize, format, ap))
+        ok = true;
+
+_local_exit:
     va_end (ap);
-    return status;
+    if (!ok)
+        if (result)
+            *result = (struct error_entry_t *) NULL;
+    return !ok;
 }

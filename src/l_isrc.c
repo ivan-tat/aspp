@@ -25,42 +25,48 @@ bool
         struct input_source_entry_t **result
     )
 {
+    bool ok;
     struct input_source_entry_t *p;
     char *p_real, *p_base, *p_user;
 #if DEBUG == 1
     unsigned i;
 #endif  // DEBUG == 1
 
+    ok = false;
+    p = (struct input_source_entry_t *) NULL;
+    p_real = (char *) NULL;
+    p_base = (char *) NULL;
+    p_user = (char *) NULL;
+
     if (!self || !real || !base || !user)
     {
         _DBG ("Bad arguments.");
-        return true;
+        goto _local_exit;
     }
 
     p = malloc (sizeof (struct input_source_entry_t));
-    p_real = strdup (real);
-    p_base = strdup (base);
-    p_user = strdup (user);
-
-    if (!p || !p_real || !p_base || !p_user)
+    if (!p)
     {
-        if (p)
-            free (p);
-        else
-            _DBG_ ("Failed to allocate memory for %s.", "input source entry");
-        if (p_real)
-            free (p_real);
-        else
-            _DBG_ ("Failed to allocate memory for %s.", "real file string");
-        if (p_base)
-            free (p_base);
-        else
-            _DBG_ ("Failed to allocate memory for %s.", "base path string");
-        if (p_user)
-            free (p_user);
-        else
-            _DBG_ ("Failed to allocate memory for %s.", "user file string");
-        return true;
+        _perror ("malloc");
+        goto _local_exit;
+    }
+    p_real = strdup (real);
+    if (!p_real)
+    {
+        _perror ("strdup");
+        goto _local_exit;
+    }
+    p_base = strdup (base);
+    if (!p_base)
+    {
+        _perror ("strdup");
+        goto _local_exit;
+    }
+    p_user = strdup (user);
+    if (!p_user)
+    {
+        _perror ("strdup");
+        goto _local_exit;
     }
 
     p->list_entry.next = NULL;
@@ -73,21 +79,31 @@ bool
 #endif  // DEBUG == 1
     list_add_entry ((struct list_t *) self, (struct list_entry_t *) p);
 
-    _DBG_
-    (
-        "Added new input source #%u:" NL
-        "Input source #%u: user file = '%s'" NL
-        "Input source #%u: base path = '%s'" NL
-        "Input source #%u: real file = '%s'",
-        i,
-        i, p->user,
-        i, p->base,
-        i, p->real
-    );
+    _DBG_ ("Added new input source #%u:", i);
+    _DBG_ ("Input source #%u: user file = '%s'", i, p->user);
+    _DBG_ ("Input source #%u: base path = '%s'", i, p->base);
+    _DBG_ ("Input source #%u: real file = '%s'", i, p->real);
 
+    ok = true;
+
+_local_exit:
+    if (!ok)
+    {
+        if (p)
+        {
+            free (p);
+            p = (struct input_source_entry_t *) NULL;
+        }
+        if (p_real)
+            free (p_real);
+        if (p_base)
+            free (p_base);
+        if (p_user)
+            free (p_user);
+    }
     if (result)
         *result = p;
-    return false;
+    return !ok;
 }
 
 bool
@@ -98,13 +114,17 @@ bool
         struct input_source_entry_t **result
     )
 {
+    bool ok;
     struct input_source_entry_t *p;
     unsigned i;
+
+    ok = false;
+    p = (struct input_source_entry_t *) NULL;
 
     if (!self || !real)
     {
         _DBG ("Bad arguments.");
-        return true;
+        goto _local_exit;
     }
 
     p = (struct input_source_entry_t *) self->list.first;
@@ -113,19 +133,23 @@ bool
     {
         if (!strcmp (p->real, real))
         {
+            // Success
             _DBG_ ("Found user file '%s' (real file '%s') at #%u.", p->user, p->real, i);
-            if (result)
-                *result = p;
-            return false;
+            ok = true;
+            goto _local_exit;
         }
         p = (struct input_source_entry_t *) p->list_entry.next;
         i++;
     }
 
+    // Fail
+    //p = (struct input_source_entry_t *) NULL;
     _DBG_ ("Failed to find real file '%s'.", real);
+
+_local_exit:
     if (result)
-        *result = NULL;
-    return true;
+        *result = p;
+    return !ok;
 }
 
 bool
@@ -136,13 +160,17 @@ bool
         struct input_source_entry_t **result
     )
 {
+    bool ok;
     struct input_source_entry_t *p;
     unsigned i;
+
+    ok = false;
+    p = (struct input_source_entry_t *) NULL;
 
     if (!self || !user)
     {
         _DBG ("Bad arguments.");
-        return true;
+        goto _local_exit;
     }
 
     p = (struct input_source_entry_t *) self->list.first;
@@ -151,19 +179,23 @@ bool
     {
         if (!strcmp (p->user, user))
         {
+            // Success
             _DBG_ ("Found user file '%s' (real file '%s') at #%u.", p->user, p->real, i);
-            if (result)
-                *result = p;
-            return false;
+            ok = true;
+            goto _local_exit;
         }
         p = (struct input_source_entry_t *) p->list_entry.next;
         i++;
     }
 
+    // Fail
+    //p = (struct input_source_entry_t *) NULL;
     _DBG_ ("Failed to find user file '%s'.", user);
+
+_local_exit:
     if (result)
-        *result = NULL;
-    return true;
+        *result = p;
+    return !ok;
 }
 
 bool
@@ -175,13 +207,12 @@ bool
         struct input_source_entry_t **result
     )
 {
-    char *tmp, *real;
     bool ok;
+    char *real, *tmp;
     unsigned len;
 
-    tmp = NULL;
-    real = NULL;
     ok = false;
+    real = NULL;
 
     if (!self || !user || !base_path_real)
     {
@@ -197,7 +228,7 @@ bool
         if (!real)
         {
             // Fail
-            _DBG_ ("Failed to resolve %s.", "real path");
+            _perror ("resolve_full_path");
             goto _local_exit;
         }
         if (input_sources_find_real (self, real, result))
@@ -207,6 +238,9 @@ bool
                 // Fail
                 goto _local_exit;
             }
+            // Success
+            //ok = true;
+            //goto _local_exit;
         }
         // Success
         ok = true;
@@ -229,19 +263,18 @@ bool
             if (!tmp)
             {
                 // Fail
-                _DBG_ ("Failed to allocate memory for %s.", "string");
+                _perror ("malloc");
                 goto _local_exit;
             }
             snprintf (tmp, len, "%s" PATHSEPSTR "%s", base_path_real, user);
             real = resolve_full_path (tmp);
+            free (tmp);
             if (!real)
             {
                 // Fail
-                _DBG_ ("Failed to resolve %s.", "real path");
+                _perror ("resolve_full_path");
                 goto _local_exit;
             }
-            free (tmp);
-            tmp = NULL; // to prevent free() on exit
             // trying real path - we are lucky
             if (check_file_exists (real))
             {
@@ -262,9 +295,8 @@ bool
             }
         }
     }
+
 _local_exit:
-    if (tmp)
-        free (tmp);
     if (real)
         free (real);
     if (!ok)
@@ -295,15 +327,9 @@ void
         i = 0;
         do
         {
-            _DBG_
-            (
-                "Input source #%u: user file = '%s'" NL
-                "Input source #%u: base path = '%s'" NL
-                "Input source #%u: real file = '%s'",
-                i, ((struct input_source_entry_t *) p)->user,
-                i, ((struct input_source_entry_t *) p)->base,
-                i, ((struct input_source_entry_t *) p)->real
-            );
+            _DBG_ ("Input source #%u: user file = '%s'", i, ((struct input_source_entry_t *) p)->user);
+            _DBG_ ("Input source #%u: base path = '%s'", i, ((struct input_source_entry_t *) p)->base);
+            _DBG_ ("Input source #%u: real file = '%s'", i, ((struct input_source_entry_t *) p)->real);
             p = (struct input_source_entry_t *) ((struct input_source_entry_t *) p)->list_entry.next;
             i++;
         }

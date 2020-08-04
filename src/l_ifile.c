@@ -25,32 +25,34 @@ bool
         struct include_file_entry_t **result
     )
 {
+    bool ok;
     struct include_file_entry_t *p;
     char *p_name;
 #if DEBUG == 1
     unsigned i;
 #endif  // DEBUG == 1
 
+    ok = false;
+    p = (struct include_file_entry_t *) NULL;
+    p_name = (char *) NULL;
+
     if (!self || !name)
     {
         _DBG ("Bad arguments.");
-        return true;
+        goto _local_exit;
     }
 
     p = malloc (sizeof (struct include_file_entry_t));
-    p_name = strdup (name);
-
-    if (!p || !p_name)
+    if (!p)
     {
-        if (p)
-            free (p);
-        else
-            _DBG_ ("Failed to allocate memory for %s.", "include file entry");
-        if (p_name)
-            free (p_name);
-        else
-            _DBG_ ("Failed to allocate memory for %s.", "string");
-        return true;
+        _perror ("malloc");
+        goto _local_exit;
+    }
+    p_name = strdup (name);
+    if (!p_name)
+    {
+        _perror ("strdup");
+        goto _local_exit;
     }
 
     p->list_entry.next = NULL;
@@ -63,21 +65,25 @@ bool
 #endif  // DEBUG == 1
     list_add_entry ((struct list_t *) self, (struct list_entry_t *) p);
 
-    _DBG_
-    (
-        "Added new include file #%u:" NL
-        "Include file #%u: line = %u" NL
-        "Include file #%u: flags = 0x%X" NL
-        "Include file #%u: user file = '%s'",
-        i,
-        i, p->line,
-        i, p->flags,
-        i, p->name
-    );
+    _DBG_ ("Added new include file #%u:", i);
+    _DBG_ ("Include file #%u line = %u", i, p->line);
+    _DBG_ ("Include file #%u flags = 0x%X", i, p->flags);
+    _DBG_ ("Include file #%u user file = '%s'", i, p->name);
 
+    ok = true;
+
+_local_exit:
+    if (!ok)
+    {
+        if (p)
+            free (p);
+        p = (struct include_file_entry_t *) NULL;
+        if (p_name)
+            free (p_name);
+    }
     if (result)
         *result = p;
-    return false;
+    return !ok;
 }
 
 void include_files_free

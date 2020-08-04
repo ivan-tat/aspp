@@ -219,7 +219,9 @@ char *_make_path (const char *a, const char *b)
     if (result)
         sprintf (result, "%s" PATHSEPSTR "%s", a, b);
     else
-        _DBG_ ("Failed to allocate memory for %s.", "string");
+    {
+        _perror ("malloc");
+    }
     return result;
 }
 
@@ -235,9 +237,13 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
     char *inc_real_res;
     struct include_path_entry_t *resolved;
 
-    ok = false;
+    _DBG_ ("Source user file = '%s'", src->user);
+    _DBG_ ("Source base path = '%s'", src->base);
+    _DBG_ ("Source real file = '%s'", src->real);
+    _DBG_ ("Include file = '%s'", f_loc);
+    _DBG_ ("Include flags = 0x%X", inc_flags);
 
-    // free on exit:
+    ok = false;
     src_base_tmp = (char *) NULL;
     inc_real_tmp = (char *) NULL;
     inc_base_tmp = (char *) NULL;
@@ -248,13 +254,12 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
     if (check_path_abs (f_loc))
     {
         // absolute source's path - use it as is
-        _DBG_ ("Checking '%s'...", f_loc);
         inc_real = f_loc;
         inc_base_tmp = get_dir_name (f_loc);
         if (!inc_base_tmp)
         {
             // Fail
-            _DBG_ ("Failed to allocate memory for %s.", "string");
+            _perror ("get_dir_name");
             goto _local_exit;
         }
         inc_base = inc_base_tmp;
@@ -263,6 +268,7 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
         if (sources_add (&v_sources, inc_real, inc_base, inc_user, inc_flags, NULL))
         {
             // Fail
+            _perror ("sources_add");
             goto _local_exit;
         }
         // Success
@@ -275,16 +281,18 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
         if (!src_base_tmp)
         {
             // Fail
-            _DBG_ ("Failed to allocate memory for %s.", "string");
+            _perror ("get_dir_name");
             goto _local_exit;
         }
         src_base = src_base_tmp;
         if (check_path_abs (src->user))
         {
+            // Absolute path of primary source file
             tmp = _make_path (src_base, src->user);
             if (!tmp)
             {
                 // Fail
+                _perror ("_make_path");
                 goto _local_exit;
             }
             inc_real_tmp = resolve_full_path (tmp);
@@ -292,6 +300,7 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
             if (!inc_real_tmp)
             {
                 // Fail
+                _perror ("resolve_full_path");
                 goto _local_exit;
             }
             inc_real = inc_real_tmp;
@@ -299,11 +308,12 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
         }
         else
         {
+            // Relative path of primary source file
             tmp = get_dir_name (src->real);
             if (!tmp)
             {
                 // Fail
-                _DBG_ ("Failed to allocate memory for %s.", "string");
+                _perror ("get_dir_name");
                 goto _local_exit;
             }
             inc_real_tmp = _make_path (tmp, f_loc);
@@ -311,6 +321,7 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
             if (!inc_real_tmp)
             {
                 // Fail
+                _perror ("_make_path");
                 goto _local_exit;
             }
             tmp = inc_real_tmp;
@@ -319,23 +330,18 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
             if (!inc_real_tmp)
             {
                 // Fail
+                _perror ("resolve_full_path");
                 goto _local_exit;
             }
             inc_real = inc_real_tmp;
             inc_base = src->base;
             if (strcmp (src_base, ".") != 0)
             {
-                tmp = _make_path (src_base, inc_user);
-                if (!tmp)
-                {
-                    // Fail
-                    goto _local_exit;
-                }
-                inc_user_tmp = resolve_full_path (tmp);
-                free (tmp);
+                inc_user_tmp = _make_path (src_base, inc_user);
                 if (!inc_user_tmp)
                 {
                     // Fail
+                    _perror ("_make_path");
                     goto _local_exit;
                 }
                 inc_user = inc_user_tmp;
@@ -346,6 +352,7 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
             if (sources_add (&v_sources, inc_real, inc_base, inc_user, inc_flags, NULL))
             {
                 // Fail
+                _perror ("sources_add");
                 goto _local_exit;
             }
             // Success
@@ -359,6 +366,7 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
                 if (!tmp)
                 {
                     // Fail
+                    _perror ("_make_path");
                     goto _local_exit;
                 }
                 inc_real_res = resolve_full_path (tmp);
@@ -366,6 +374,7 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
                 if (!inc_real_res)
                 {
                     // Fail
+                    _perror ("resolve_full_path");
                     goto _local_exit;
                 }
                 inc_real = inc_real_res;
@@ -379,6 +388,7 @@ bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flag
             if (sources_add (&v_sources, inc_real, inc_base, inc_user, 0, NULL))
             {
                 // Fail
+                _perror ("sources_add");
                 goto _local_exit;
             }
             // Success
@@ -398,6 +408,7 @@ _local_exit:
     if (inc_real_res)
         free (inc_real_res);
 
+    _DBG_ ("Done checking '%s' (%s).", f_loc, ok ? "success" : "failed");
     return ok;
 }
 
@@ -414,11 +425,9 @@ bool parse_source (struct source_entry_t *src)
     char *f_loc, *f_loc_tmp;
     unsigned inc_flags;
 
-    _DBG_ (
-        "Source user file: '%s'" NL
-        "Source base path: '%s'" NL
-        "Source real file: '%s'",
-        src->user, src->base, src->real);
+    _DBG_ ("Source user file = '%s'", src->user);
+    _DBG_ ("Source base path = '%s'", src->base);
+    _DBG_ ("Source real file = '%s'", src->real);
 
     ok = false;
 
@@ -447,7 +456,7 @@ bool parse_source (struct source_entry_t *src)
             if (!t)
             {
                 // Fail
-                _DBG_ ("Failed to allocate memory for %s.", "string");
+                _perror ("malloc");
                 goto _loop_exit;
             }
         }
@@ -497,7 +506,7 @@ bool parse_source (struct source_entry_t *src)
         if (!f_loc_tmp)
         {
             // Fail
-            _DBG_ ("Failed to allocate memory for %s.", "string");
+            _perror ("malloc");
             goto _loop_exit;
         }
         memcpy (f_loc_tmp, namep, namelen);
@@ -527,6 +536,7 @@ _local_exit:
     asm_file_free (&file);
     if (t)
         free (t);
+    _DBG_ ("Done parsing '%s' (%s).", src->user, ok ? "success" : "failed");
     return !ok;
 }
 #undef TEXT_BUF_SIZE
@@ -589,7 +599,7 @@ bool write_rule (const char *name)
     if (!f)
     {
         // Fail
-        _DBG_ ("Failed to open file for %s.", "writing");
+        _perror ("fopen");
         return true;
     }
 

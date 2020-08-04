@@ -26,7 +26,7 @@ void _DEBUG (const char *file, int line, const char *func, const char *format, .
     if (func)
         fprintf (stderr, ":%s()", func);
 
-    fprintf (stderr, "%c", ' ');
+    fprintf (stderr, "%s", ": ");
 
     if (format)
         vfprintf (stderr, format, ap);
@@ -34,4 +34,9 @@ void _DEBUG (const char *file, int line, const char *func, const char *format, .
     va_end (ap);
 
     fprintf (stderr, NL);
+}
+
+void _PERROR (const char *file, int line, const char *func, const char *text)
+{
+    _DEBUG (file, line, func, "%s() failed.", text);
 }

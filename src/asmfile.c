@@ -56,7 +56,7 @@ bool asm_file_load (struct asm_file_t *self, const char *name)
     s = 0;
     p = NULL;
 
-    _DBG_ ("name='%s'", name);
+    _DBG_ ("File name = '%s'", name);
 
 #if defined (_WIN32) || defined (_WIN64)
     f = fopen (name, "rb");
@@ -66,7 +66,7 @@ bool asm_file_load (struct asm_file_t *self, const char *name)
     if (!f)
     {
         // Fail
-        _DBG_ ("Failed to open file for %s", "reading");
+        _perror ("fopen");
         goto _local_exit;
     }
 
@@ -76,7 +76,7 @@ bool asm_file_load (struct asm_file_t *self, const char *name)
     if (errno)
     {
         // Fail
-        _DBG ("Failed to seek in file.");
+        _perror ("fseek");
         goto _local_exit;
     }
 
@@ -84,7 +84,7 @@ bool asm_file_load (struct asm_file_t *self, const char *name)
     if (s < 0)
     {
         // Fail
-        _DBG ("Failed to get position in file.");
+        _perror ("ftell");
         goto _local_exit;
     }
 
@@ -92,11 +92,11 @@ bool asm_file_load (struct asm_file_t *self, const char *name)
     if (errno)
     {
         // Fail
-        _DBG ("Failed to seek in file.");
+        _perror ("fseek");
         goto _local_exit;
     }
 
-    _DBG_ ("size=%li", (long) s);
+    _DBG_ ("File size = %li", (long) s);
 
     if (s)
     {
@@ -104,14 +104,14 @@ bool asm_file_load (struct asm_file_t *self, const char *name)
         if (!p)
         {
             // Fail
-            _DBG_ ("Failed to allocate memory for %s.", "data");
+            _perror ("malloc");
             goto _local_exit;
         }
         errno = 0;
         if (fread (p, s, 1, f) != 1)
         {
             // Fail
-            _DBG ("Failed to read file.");
+            _perror ("fread");
             goto _local_exit;
         }
         // Success

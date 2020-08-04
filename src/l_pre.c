@@ -22,32 +22,34 @@ bool
         struct prerequisite_entry_t **result
     )
 {
+    bool ok;
     struct prerequisite_entry_t *p;
     char *p_prerequisite;
 #if DEBUG == 1
     unsigned i;
 #endif  // DEBUG == 1
 
+    ok = false;
+    p = (struct prerequisite_entry_t *) NULL;
+    p_prerequisite = (char *) NULL;
+
     if (!self || !prerequisite)
     {
         _DBG ("Bad arguments.");
-        return true;
+        goto _local_exit;
     }
 
     p = malloc (sizeof (struct prerequisite_entry_t));
-    p_prerequisite = strdup (prerequisite);
-
-    if (!p || !p_prerequisite)
+    if (!p)
     {
-        if (p)
-            free (p);
-        else
-            _DBG_ ("Failed to allocate memory for %s.", "prerequisite entry");
-        if (p_prerequisite)
-            free (p_prerequisite);
-        else
-            _DBG_ ("Failed to allocate memory for %s.", "string");
-        return true;
+        _perror ("malloc");
+        goto _local_exit;
+    }
+    p_prerequisite = strdup (prerequisite);
+    if (!p_prerequisite)
+    {
+        _perror ("strdup");
+        goto _local_exit;
     }
 
     p->list_entry.next = NULL;
@@ -59,9 +61,23 @@ bool
     list_add_entry ((struct list_t *) self,  (struct list_entry_t *) p);
 
     _DBG_ ("Added new prerequisite #%u: '%s'", i, p->prerequisite);
+
+    ok = true;
+
+_local_exit:
+    if (!ok)
+    {
+        if (p)
+        {
+            free (p);
+            p = (struct prerequisite_entry_t *) NULL;
+        }
+        if (p_prerequisite)
+            free (p_prerequisite);
+    }
     if (result)
         *result = p;
-    return false;
+    return !ok;
 }
 
 bool
@@ -72,7 +88,7 @@ bool
     )
 {
     const struct prerequisite_entry_t *p;
-    bool f;
+    bool padding;
 
     if (!self || !stream)
     {
@@ -80,16 +96,16 @@ bool
         return true;
     }
 
-    f = false;
+    padding = false;
     for (p = (struct prerequisite_entry_t *) self->list.first; p;
          p = (struct prerequisite_entry_t *) p->list_entry.next)
     {
-        if (fprintf (stream, f ? " %s" : "%s", p->prerequisite) < 0)
+        if (fprintf (stream, padding ? " %s" : "%s", p->prerequisite) < 0)
         {
-            _DBG ("Failed to write to output file.");
+            _perror ("fprintf");
             return true;
         }
-        f = true;
+        padding = true;
     }
 
     return false;
