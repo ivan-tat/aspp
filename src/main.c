@@ -329,7 +329,7 @@ bool process_included_file (struct source_entry_t *src, char *f_loc, unsigned in
         else
         {
             _DBG_ ("'%s' not found, resolving...", f_loc);
-            if (include_paths_resolve_file (&v_include_paths, f_loc, &resolved))
+            if (!include_paths_resolve_file (&v_include_paths, f_loc, &resolved))
             {
                 tmp = _make_path (resolved->real, f_loc);
                 if (!tmp)
