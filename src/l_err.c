@@ -14,6 +14,37 @@
 #include "l_list.h"
 #include "l_err.h"
 
+void
+    error_entry_clear
+    (
+        struct error_entry_t *self
+    )
+{
+    list_entry_clear (&self->list_entry);
+    self->msg = NULL;
+}
+
+void
+    error_entry_free
+    (
+        struct error_entry_t *self
+    )
+{
+    list_entry_free (&self->list_entry);
+    if (self->msg)
+        free (self->msg);
+    error_entry_clear (self);
+}
+
+void
+    errors_clear
+    (
+        struct errors_t *self
+    )
+{
+    list_clear (&self->list);
+}
+
 bool
     errors_add
     (
@@ -50,10 +81,10 @@ bool
         goto _local_exit;
     }
 
-    p->list_entry.next = NULL;
+    error_entry_clear (p);
     p->msg = p_msg;
 
-    list_add_entry ((struct list_t *) self,  (struct list_entry_t *) p);
+    list_add_entry (&self->list, &p->list_entry);
     ok = true;
 
 _local_exit:
@@ -145,4 +176,23 @@ _local_exit:
         if (result)
             *result = (struct error_entry_t *) NULL;
     return !ok;
+}
+
+void
+    errors_free
+    (
+        struct errors_t *self
+    )
+{
+    struct error_entry_t *p, *n;
+
+    p = (struct error_entry_t *) self->list.first;
+    while (p)
+    {
+        n = (struct error_entry_t *) p->list_entry.next;
+        error_entry_free (p);
+        free (p);
+        p = n;
+    }
+    errors_clear (self);
 }

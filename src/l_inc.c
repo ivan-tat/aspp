@@ -15,6 +15,43 @@
 #include "l_list.h"
 #include "l_inc.h"
 
+void
+    include_path_entry_clear
+    (
+        struct include_path_entry_t *self
+    )
+{
+    list_entry_clear (&self->list_entry);
+    self->real = NULL;
+    self->base = NULL;
+    self->user = NULL;
+}
+
+void
+    include_path_entry_free
+    (
+        struct include_path_entry_t *self
+    )
+{
+    list_entry_free (&self->list_entry);
+    if (self->real)
+        free (self->real);
+    if (self->base)
+        free (self->base);
+    if (self->user)
+        free (self->user);
+    include_path_entry_clear (self);
+}
+
+void
+    include_paths_clear
+    (
+        struct include_paths_t *self
+    )
+{
+    list_clear (&self->list);
+}
+
 bool
     include_paths_add
     (
@@ -69,7 +106,7 @@ bool
         goto _local_exit;
     }
 
-    p->list_entry.next = NULL;
+    include_path_entry_clear (p);
     p->real = p_real;
     p->base = p_base;
     p->user = p_user;
@@ -77,7 +114,7 @@ bool
 #if DEBUG == 1
     i = self->list.count;
 #endif  // DEBUG == 1
-    list_add_entry ((struct list_t *) self, (struct list_entry_t *) p);
+    list_add_entry (& self->list, & p->list_entry);
 
     _DBG_ ("Added new include path #%u:", i);
     _DBG_ ("Include path #%u: user path = '%s'", i, p->user);
@@ -90,8 +127,10 @@ _local_exit:
     if (!ok)
     {
         if (p)
+        {
             free (p);
-        p = (struct include_path_entry_t *) NULL;
+            p = (struct include_path_entry_t *) NULL;
+        }
         if (p_real)
             free (p_real);
         if (p_base)
@@ -206,11 +245,10 @@ bool
     )
 {
     bool ok;
-    char *tmp, *real;
+    char *real, *tmp;
     unsigned len;
 
     ok = false;
-    tmp = NULL;
     real = NULL;
 
     if (!self || !user || !base_path_real)
@@ -266,7 +304,6 @@ bool
             snprintf (tmp, len, "%s" PATHSEPSTR "%s", base_path_real, user);
             real = resolve_full_path (tmp);
             free (tmp);
-            tmp = NULL; // to prevent free() on exit
             if (!real)
             {
                 // Fail
@@ -292,8 +329,6 @@ bool
     // Success or Fail
 
 _local_exit:
-    if (tmp)
-        free (tmp);
     if (real)
         free (real);
     if (!ok)
@@ -411,3 +446,22 @@ void
         _DBG ("No include paths.");
 }
 #endif  // DEBUG == 1
+
+void
+    include_paths_free
+    (
+        struct include_paths_t *self
+    )
+{
+    struct include_path_entry_t *p, *n;
+
+    p = (struct include_path_entry_t *) self->list.first;
+    while (p)
+    {
+        n = (struct include_path_entry_t *) p->list_entry.next;
+        include_path_entry_free (p);
+        free (p);
+        p = n;
+    }
+    include_paths_clear (self);
+}

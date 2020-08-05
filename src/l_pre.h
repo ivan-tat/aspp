@@ -13,16 +13,38 @@
 
 // Prerequisites list structure
 
+// Entry
+
 struct prerequisite_entry_t
 {
     struct list_entry_t list_entry;
     char *prerequisite;
 };
 
+void
+    prerequisite_entry_clear
+    (
+        struct prerequisite_entry_t *self
+    );
+
+void
+    prerequisite_entry_free
+    (
+        struct prerequisite_entry_t *self
+    );
+
+// List
+
 struct prerequisites_t
 {
     struct list_t list;
 };
+
+void
+    prerequisites_clear
+    (
+        struct prerequisites_t *self
+    );
 
 // Returns "false" on success ("result" if presents is set to list entry).
 bool
@@ -39,6 +61,12 @@ bool
     (
         struct prerequisites_t *self,
         FILE *stream
+    );
+
+void
+    prerequisites_free
+    (
+        struct prerequisites_t *self
     );
 
 #endif  // !_L_PRE_H_INCLUDED

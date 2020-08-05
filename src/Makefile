@@ -99,7 +99,7 @@ endif
 
 MAINSRC		= main.c
 MAINEXEC	= aspp$(EXECEXT)
-SRCS		= asmfile.c debug.c l_err.c l_ifile.c l_inc.c l_isrc.c l_list.c l_pre.c l_src.c l_tgt.c platform.c
+SRCS		= asmfile.c debug.c l_err.c l_ifile.c l_inc.c l_isrc.c l_list.c l_pre.c l_src.c l_tgt.c parser.c platform.c
 CFLAGS		+= -Wall -DDEBUG=$(DEBUG)
 DEPCC		= $(CC)
 DEPCFLAGS	= -MM

@@ -14,6 +14,46 @@
 #include "l_list.h"
 #include "l_src.h"
 
+void
+    source_entry_clear
+    (
+        struct source_entry_t *self
+    )
+{
+    list_entry_clear (&self->list_entry);
+    self->real = NULL;
+    self->base = NULL;
+    self->user = NULL;
+    self->flags = 0;
+    included_files_clear (&self->included);
+}
+
+void
+    source_entry_free
+    (
+        struct source_entry_t *self
+    )
+{
+    list_entry_free (&self->list_entry);
+    if (self->real)
+        free (self->real);
+    if (self->base)
+        free (self->base);
+    if (self->user)
+        free (self->user);
+    included_files_free (&self->included);
+    source_entry_clear (self);
+}
+
+void
+    sources_clear
+    (
+        struct sources_t *self
+    )
+{
+    list_clear (&self->list);
+}
+
 bool
     sources_add
     (
@@ -69,7 +109,7 @@ bool
         goto _local_exit;
     }
 
-    p->list_entry.next = NULL;
+    source_entry_clear (p);
     p->real = p_real;
     p->base = p_base;
     p->user = p_user;
@@ -198,4 +238,23 @@ _local_exit:
     if (result)
         *result = p;
     return !ok;
+}
+
+void
+    sources_free
+    (
+        struct sources_t *self
+    )
+{
+    struct source_entry_t *p, *n;
+
+    p = (struct source_entry_t *) self->list.first;
+    while (p)
+    {
+        n = (struct source_entry_t *) p->list_entry.next;
+        source_entry_free (p);
+        free (p);
+        p = n;
+    }
+    sources_clear (self);
 }

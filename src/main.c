@@ -29,6 +29,7 @@
 #include "l_pre.h"
 #include "l_src.h"
 #include "l_tgt.h"
+#include "parser.h"
 #include "platform.h"
 
 #define PROGRAM_NAME "aspp"
@@ -62,6 +63,7 @@
 
 struct errors_t
           errors           = { { .first = NULL, .last = NULL, .count = 0 } };
+unsigned  v_syntax         = SYNTAX_TASM;
 unsigned  v_act            = ACT_NONE;
 char      v_act_show_help  = 0;
 char      v_act_preprocess = 0;
@@ -82,6 +84,8 @@ struct prerequisites_t
 #if DEBUG == 1
 void _DBG_dump_vars (void)
 {
+    const char *s;
+    _DBG_ ("Input files syntax = '%s'", _syntax_to_str (v_syntax, &s) ? s : "unknown");
     _DBG_include_paths_dump (&v_include_paths);
     _DBG_input_sources_dump (&v_input_sources);
     _DBG_target_names_dump (&v_target_names);
@@ -167,47 +171,12 @@ NL
 "-I <path>       include directory" NL
 "-M[M]           output autodepend make rule" NL
 "-MF <file>      autodepend output name" NL
-"-MT <target>    autodepend target name (can be specified multiple times)" NL,
+"-MT <target>    autodepend target name (can be specified multiple times)" NL
+NL
+"Other options:" NL
+"--syntax <syntax>   select source file syntax (tasm, sjasm)" NL,
         PROGRAM_NAME
     );
-}
-
-char *_skip_blanks (char *s)
-{
-    if (s) while (*s != '\0' && isblank(*s)) s++;
-    return s;
-}
-
-char *_skip_word (char *s)
-{
-    if (s)
-    {
-        if (*s == '_' || isalpha(*s))
-        {
-            s++;
-            while (*s != '\0' && isalnum(*s)) s++;
-        }
-    }
-    return s;
-}
-
-char *_skip_string (char *s)
-{
-    char *p;
-    p = s;
-    if (p)
-    {
-        if (*p == '"')
-        {
-            p++;        // Skip opening double quote character
-            while (*p != '\0' && *p != '"') p++;
-            if (*p == '"')
-                p++;    // Skip closing double quote character
-            else
-                p = s;  // Fail
-        }
-    }
-    return p;
 }
 
 // Result must be freed by caller.
@@ -226,7 +195,7 @@ char *_make_path (const char *a, const char *b)
 }
 
 // Returns "true" on success.
-bool process_include (struct source_entry_t *src, char *f_loc, unsigned inc_flags)
+bool process_included_file (struct source_entry_t *src, char *f_loc, unsigned inc_flags)
 {
     bool ok;
     char *tmp;
@@ -412,18 +381,19 @@ _local_exit:
     return ok;
 }
 
-#define TEXT_BUF_SIZE 15
 // Returns "false" on success.
-bool parse_source (struct source_entry_t *src)
+bool collect_included_files (struct source_entry_t *src)
 {
     bool ok;
     struct asm_file_t file;
     char *t;
-    char buf[TEXT_BUF_SIZE+1];
-    char *s, *endp, *namep;
-    unsigned tl, len, sl, namelen;
-    char *f_loc, *f_loc_tmp;
+    const char *s;
+    unsigned tl, len;
     unsigned inc_flags;
+    char *inc_name;
+    get_include_proc_t *getincl;
+    char st;
+    struct included_file_entry_t *incl;
 
     _DBG_ ("Source user file = '%s'", src->user);
     _DBG_ ("Source base path = '%s'", src->base);
@@ -435,6 +405,13 @@ bool parse_source (struct source_entry_t *src)
     asm_file_clear (&file);
     t = (char *) NULL;
 
+    if (!_find_get_include_proc (v_syntax, &getincl))
+    {
+        // Fail
+        _DBG ("Unknown syntax specified.");
+        goto _local_exit;
+    }
+
     if (!asm_file_load (&file, src->user))
     {
         // Fail
@@ -445,7 +422,7 @@ bool parse_source (struct source_entry_t *src)
     while (asm_file_next_line (&file, &s, &len))
     {
         // Free on exit (_loop_exit):
-        f_loc_tmp = (char *) NULL;
+        inc_name = (char *) NULL;
 
         if (tl < len + 1)
         {
@@ -463,66 +440,36 @@ bool parse_source (struct source_entry_t *src)
         memcpy (t, s, len);
         t[len] = '\0';
 
-        // RegEx pattern: [[:space:]]+(include|incbin)[[:space:]]+"[^[:space:]]+"
-        // The rest of a line is not analized.
-        s = t;
+        st = getincl (t, &inc_flags, &inc_name);
 
-        // blanks
-        endp = _skip_blanks (s);
-        if (s == endp || *endp == '\0')
-            goto _skip_line;
-        // assembler directive
-        s = endp;
-        endp = _skip_word (s);
-        if (s == endp || *endp == '\0')
-            goto _skip_line;
-        // (save it)
-        sl = endp - s;
-        if (sl > TEXT_BUF_SIZE)
-            sl = TEXT_BUF_SIZE;
-        memcpy (buf, s, sl);
-        buf[sl] = '\0';
-        // (check it)
-        if (!strcasecmp (buf, "incbin"))
-            inc_flags = 0;
-        else if (!strcasecmp (buf, "include"))
-            inc_flags = SRCFL_PARSE;
-        else
-            goto _skip_line;
-        // blanks
-        s = endp;
-        endp = _skip_blanks (s);
-        if (s == endp || *endp == '\0')
-            goto _skip_line;
-        // string
-        s = endp;
-        endp = _skip_string (s);
-        if (s == endp)
-            goto _skip_line;
-        // (save it)
-        namep = s + 1;          // skip opening double quotes character
-        namelen = endp - s - 2; // excluding double quotes characters
-        f_loc_tmp = malloc (namelen + 1);       // including terminating zero
-        if (!f_loc_tmp)
+        switch (st)
         {
-            // Fail
-            _perror ("malloc");
+        case PARST_OK:
+            if (included_files_find (&src->included, inc_name, &incl))
+            {
+                if (included_files_add (&src->included, file.line, inc_flags, inc_name, NULL))
+                {
+                    // Fail
+                    goto _loop_exit;
+                }
+            }
+            else
+            {
+                // HINT: This is weird if we included this file as binary but now we want to parse it
+                if ((inc_flags & SRCFL_PARSE) && !(incl->flags & SRCFL_PARSE))
+                    incl->flags |= SRCFL_PARSE;
+            }
+
+            if (inc_name)
+                free (inc_name);
+            inc_name = (char *) NULL;
+            break;
+        case PARST_SKIP:
+            goto _skip_line;
+        default:
+            // Error
             goto _loop_exit;
         }
-        memcpy (f_loc_tmp, namep, namelen);
-        f_loc_tmp[namelen] = '\0';
-        f_loc = f_loc_tmp;
-        // (done)
-
-        if (!process_include (src, f_loc, inc_flags))
-        {
-            // Fail
-            goto _loop_exit;
-        }
-
-        if (f_loc_tmp)
-            free (f_loc_tmp);
-        f_loc_tmp = (char *) NULL;
     _skip_line:;
     }
 
@@ -530,16 +477,69 @@ bool parse_source (struct source_entry_t *src)
     goto _local_exit;
 
 _loop_exit:
-    if (f_loc_tmp)
-        free (f_loc_tmp);
+    if (inc_name)
+        free (inc_name);
 _local_exit:
     asm_file_free (&file);
     if (t)
         free (t);
+    _DBG_ ("Done collecting included files of '%s' (%s).", src->user, ok ? "success" : "failed");
+    return !ok;
+}
+
+// Returns "false" on success.
+bool process_included_files_list (struct source_entry_t *src)
+{
+    bool ok;
+    struct included_file_entry_t *p;
+
+    ok = false;
+
+    p = (struct included_file_entry_t *) src->included.list.first;
+    while (p)
+    {
+        if (!process_included_file (src, p->name, p->flags))
+        {
+            // Fail
+            goto _local_exit;
+        }
+        p = (struct included_file_entry_t *) p->list_entry.next;
+    }
+
+    ok = true;
+
+_local_exit:
+    _DBG_ ("Done parsing included files of '%s' (%s).", src->user, ok ? "success" : "failed");
+    return !ok;
+}
+
+// Returns "false" on success.
+bool parse_source (struct source_entry_t *src)
+{
+    bool ok;
+
+    ok = false;
+
+    if (collect_included_files (src))
+    {
+        // Fail
+        goto _local_exit;
+    }
+
+    _DBG_ ("Found %u included files.", src->included.list.count);
+
+    if (src->included.list.count && process_included_files_list (src))
+    {
+        // Fail
+        goto _local_exit;
+    }
+
+    ok = true;
+
+_local_exit:
     _DBG_ ("Done parsing '%s' (%s).", src->user, ok ? "success" : "failed");
     return !ok;
 }
-#undef TEXT_BUF_SIZE
 
 // Returns "false" on success.
 bool make_rule (void)
@@ -578,7 +578,7 @@ bool make_rule (void)
                 else
                 {
                     if (prerequisites_add (&v_prerequisites, src->user, NULL))
-                            return true;        // Fail
+                        return true;    // Fail
                 }
                 src = (struct source_entry_t *) src->list_entry.next;
             }
@@ -690,6 +690,20 @@ int main (int argc, char **argv)
             }
             if (target_names_add (&v_target_names, argv[i], NULL))
                 exit (EXIT_FAILURE);
+            i++;
+        }
+        else if (strcmp (argv[i], "--syntax") == 0)
+        {
+            i++;
+            if (i == argc)
+            {
+                if (add_missing_arg_error ("--syntax", i))
+                    exit (EXIT_FAILURE);
+                break;
+            }
+            if (!_str_to_syntax (argv[i], &v_syntax))
+                if (add_error ("Unknown syntax '%s' (#%u).", argv[i], i))
+                    exit (EXIT_FAILURE);
             i++;
         }
         else if (argv[i][0] == '-')

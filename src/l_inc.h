@@ -13,16 +13,38 @@
 
 // Include paths list structure
 
+// Entry
+
 struct include_path_entry_t
 {
     struct list_entry_t list_entry;
     char *real, *base, *user;
 };
 
+void
+    include_path_entry_clear
+    (
+        struct include_path_entry_t *self
+    );
+
+void
+    include_path_entry_free
+    (
+        struct include_path_entry_t *self
+    );
+
+// List
+
 struct include_paths_t
 {
     struct list_t list;
 };
+
+void
+    include_paths_clear
+    (
+        struct include_paths_t *self
+    );
 
 // Returns "false" on success ("result" if presents is set to list entry).
 bool
@@ -81,5 +103,11 @@ void
 #else   // DEBUG != 1
 # define _DBG_include_paths_dump(x)
 #endif  // DEBUG 1= 1
+
+void
+    include_paths_free
+    (
+        struct include_paths_t *self
+    );
 
 #endif  // !_L_INC_H_INCLUDED

@@ -14,6 +14,37 @@
 #include "l_list.h"
 #include "l_pre.h"
 
+void
+    prerequisite_entry_clear
+    (
+        struct prerequisite_entry_t *self
+    )
+{
+    list_entry_clear (&self->list_entry);
+    self->prerequisite = NULL;
+}
+
+void
+    prerequisite_entry_free
+    (
+        struct prerequisite_entry_t *self
+    )
+{
+    list_entry_free (&self->list_entry);
+    if (self->prerequisite)
+        free (self->prerequisite);
+    prerequisite_entry_clear (self);
+}
+
+void
+    prerequisites_clear
+    (
+        struct prerequisites_t *self
+    )
+{
+    list_clear (&self->list);
+}
+
 bool
     prerequisites_add
     (
@@ -109,4 +140,23 @@ bool
     }
 
     return false;
+}
+
+void
+    prerequisites_free
+    (
+        struct prerequisites_t *self
+    )
+{
+    struct prerequisite_entry_t *p, *n;
+
+    p = (struct prerequisite_entry_t *) self->list.first;
+    while (p)
+    {
+        n = (struct prerequisite_entry_t *) p->list_entry.next;
+        prerequisite_entry_free (p);
+        free (p);
+        p = n;
+    }
+    prerequisites_clear (self);
 }

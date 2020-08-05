@@ -12,6 +12,37 @@
 #include "l_list.h"
 #include "l_tgt.h"
 
+void
+    target_name_entry_clear
+    (
+        struct target_name_entry_t *self
+    )
+{
+    list_entry_clear (&self->list_entry);
+    self->name = NULL;
+}
+
+void
+    target_name_entry_free
+    (
+        struct target_name_entry_t *self
+    )
+{
+    list_entry_free (&self->list_entry);
+    if (self->name)
+        free (self->name);
+    target_name_entry_clear (self);
+}
+
+void
+    target_names_clear
+    (
+        struct target_names_t *self
+    )
+{
+    list_clear (&self->list);
+}
+
 bool
     target_names_add
     (
@@ -50,7 +81,7 @@ bool
         goto _local_exit;
     }
 
-    p->list_entry.next = NULL;
+    target_name_entry_clear (p);
     p->name = p_name;
 
 #if DEBUG == 1
@@ -141,3 +172,22 @@ void
         _DBG ("No target names.");
 }
 #endif  // DEBUG == 1
+
+void
+    target_names_free
+    (
+        struct target_names_t *self
+    )
+{
+    struct target_name_entry_t *p, *n;
+
+    p = (struct target_name_entry_t *) self->list.first;
+    while (p)
+    {
+        n = (struct target_name_entry_t *) p->list_entry.next;
+        target_name_entry_free (p);
+        free (p);
+        p = n;
+    }
+    target_names_clear (self);
+}

@@ -15,25 +15,58 @@
 #include "l_list.h"
 #include "l_ifile.h"
 
-bool
-    include_files_add
+void
+    included_file_entry_clear
     (
-        struct include_files_t *self,
+        struct included_file_entry_t *self
+    )
+{
+    list_entry_clear (&self->list_entry);
+    self->line = 0;     // invalid
+    self->flags = 0;
+    self->name = NULL;
+}
+
+void
+    included_file_entry_free
+    (
+        struct included_file_entry_t *self
+    )
+{
+    list_entry_free (&self->list_entry);
+    if (self->name)
+        free (self->name);
+    included_file_entry_clear (self);
+}
+
+void
+    included_files_clear
+    (
+        struct included_files_t *self
+    )
+{
+    list_clear (&self->list);
+}
+
+bool
+    included_files_add
+    (
+        struct included_files_t *self,
         unsigned line,
         unsigned flags,
         const char *name,
-        struct include_file_entry_t **result
+        struct included_file_entry_t **result
     )
 {
     bool ok;
-    struct include_file_entry_t *p;
+    struct included_file_entry_t *p;
     char *p_name;
 #if DEBUG == 1
     unsigned i;
 #endif  // DEBUG == 1
 
     ok = false;
-    p = (struct include_file_entry_t *) NULL;
+    p = (struct included_file_entry_t *) NULL;
     p_name = (char *) NULL;
 
     if (!self || !name)
@@ -42,7 +75,7 @@ bool
         goto _local_exit;
     }
 
-    p = malloc (sizeof (struct include_file_entry_t));
+    p = malloc (sizeof (struct included_file_entry_t));
     if (!p)
     {
         _perror ("malloc");
@@ -55,7 +88,7 @@ bool
         goto _local_exit;
     }
 
-    p->list_entry.next = NULL;
+    included_file_entry_clear (p);
     p->line = line;
     p->flags = flags;
     p->name = p_name;
@@ -65,10 +98,10 @@ bool
 #endif  // DEBUG == 1
     list_add_entry ((struct list_t *) self, (struct list_entry_t *) p);
 
-    _DBG_ ("Added new include file #%u:", i);
-    _DBG_ ("Include file #%u line = %u", i, p->line);
-    _DBG_ ("Include file #%u flags = 0x%X", i, p->flags);
-    _DBG_ ("Include file #%u user file = '%s'", i, p->name);
+    _DBG_ ("Added new included file #%u:", i);
+    _DBG_ ("Included file #%u line = %u", i, p->line);
+    _DBG_ ("Included file #%u flags = 0x%X", i, p->flags);
+    _DBG_ ("Included file #%u user file = '%s'", i, p->name);
 
     ok = true;
 
@@ -76,8 +109,10 @@ _local_exit:
     if (!ok)
     {
         if (p)
+        {
             free (p);
-        p = (struct include_file_entry_t *) NULL;
+            p = (struct included_file_entry_t *) NULL;
+        }
         if (p_name)
             free (p_name);
     }
@@ -86,23 +121,67 @@ _local_exit:
     return !ok;
 }
 
-void include_files_free
+bool
+    included_files_find
     (
-        struct include_files_t *self
+        struct included_files_t *self,
+        const char *name,
+        struct included_file_entry_t **result
     )
 {
-    struct include_file_entry_t *p, *n;
+    bool ok;
+    struct included_file_entry_t *p;
+    unsigned i;
 
-    p = (struct include_file_entry_t *) self->list.first;
+    ok = false;
+    p = (struct included_file_entry_t *) NULL;
+
+    if (!self || !name)
+    {
+        _DBG ("Bad arguments.");
+        goto _local_exit;
+    }
+
+    p = (struct included_file_entry_t *) self->list.first;
+    i = 0;
     while (p)
     {
-        if (p->name)
-            free (p->name);
-        n = (struct include_file_entry_t *) p->list_entry.next;
+        if (!strcmp (p->name, name))
+        {
+            // Success
+            _DBG_ ("Found included file '%s' at #%u.", p->name, i);
+            ok = true;
+            goto _local_exit;
+        }
+        p = (struct included_file_entry_t *) p->list_entry.next;
+        i++;
+    }
+
+    // Fail
+    //p = (struct included_file_entry_t *) NULL;
+    _DBG_ ("Failed to find included file '%s'.", name);
+
+_local_exit:
+    if (result)
+        *result = p;
+    return !ok;
+}
+
+void
+    included_files_free
+    (
+        struct included_files_t *self
+    )
+{
+    struct included_file_entry_t *p, *n;
+
+    p = (struct included_file_entry_t *) self->list.first;
+    while (p)
+    {
+        n = (struct included_file_entry_t *) p->list_entry.next;
+        included_file_entry_free (p);
         free (p);
         p = n;
     }
-    self->list.first = NULL;
-    self->list.last = NULL;
-    self->list.count = 0;
+    included_files_clear (self);
 }

@@ -9,14 +9,16 @@
 #include "defs.h"
 
 #include <stdbool.h>
-#include <stdio.h>
 #include "l_list.h"
 
 // Include files list structure
 
-#define IFILEFL_PARSE (1 << 0)
+#define SRCFL_NONE  0
+#define SRCFL_PARSE (1 << 0)
 
-struct include_file_entry_t
+// Entry
+
+struct included_file_entry_t
 {
     struct list_entry_t list_entry;
     unsigned line;
@@ -24,24 +26,54 @@ struct include_file_entry_t
     char *name;
 };
 
-struct include_files_t
+void
+    included_file_entry_clear
+    (
+        struct included_file_entry_t *self
+    );
+
+void
+    included_file_entry_free
+    (
+        struct included_file_entry_t *self
+    );
+
+// List
+
+struct included_files_t
 {
     struct list_t list;
 };
 
-bool
-    include_files_add
+void
+    included_files_clear
     (
-        struct include_files_t *self,
+        struct included_files_t *self
+    );
+
+bool
+    included_files_add
+    (
+        struct included_files_t *self,
         unsigned line,
         unsigned flags,
         const char *name,
-        struct include_file_entry_t **result
+        struct included_file_entry_t **result
     );
 
-void include_files_free
+// Returns "false" on success ("result" if presents is set to list entry).
+bool
+    included_files_find
     (
-        struct include_files_t *self
+        struct included_files_t *self,
+        const char *name,
+        struct included_file_entry_t **result
+    );
+
+void
+    included_files_free
+    (
+        struct included_files_t *self
     );
 
 #endif  // !_L_IFILE_H_INCLUDED

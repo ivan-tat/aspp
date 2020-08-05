@@ -14,16 +14,38 @@
 
 // Input sources list structure
 
+// Entry
+
 struct input_source_entry_t
 {
     struct list_entry_t list_entry;
     char *real, *base, *user;
 };
 
+void
+    input_source_entry_clear
+    (
+        struct input_source_entry_t *self
+    );
+
+void
+    input_source_entry_free
+    (
+        struct input_source_entry_t *self
+    );
+
+// List
+
 struct input_sources_t
 {
     struct list_t list;
 };
+
+void
+    input_sources_clear
+    (
+        struct input_sources_t *self
+    );
 
 // Returns "false" on success ("result" if presents is set to list entry).
 bool
@@ -73,5 +95,11 @@ void
 #else   // DEBUG != 1
 # define _DBG_input_sources_dump(x)
 #endif  // DEBUG 1= 1
+
+void
+    input_sources_free
+    (
+        struct input_sources_t *self
+    );
 
 #endif  // !_L_ISRC_H_INCLUDED

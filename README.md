@@ -78,6 +78,9 @@ Options (GCC-compatible):
 -M[M]           output autodepend make rule
 -MF <file>      autodepend output name
 -MT <target>    autodepend target name (can be specified multiple times)
+
+Other options:
+--syntax <syntax>   select source file syntax (tasm, sjasm)
 ```
 
 ## Links

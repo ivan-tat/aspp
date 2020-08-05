@@ -7,11 +7,11 @@
 
 #include <stdbool.h>
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "debug.h"
 #include "l_list.h"
-#include "l_ifile.h"
 #include "asmfile.h"
 
 void _asm_file_reset_pos (struct asm_file_t *self)
@@ -29,11 +29,6 @@ void asm_file_clear (struct asm_file_t *self)
     self->data = NULL;
     self->size = 0;
     _asm_file_reset_pos (self);
-/*
-    self->includes.list.first = NULL;
-    self->includes.list.last = NULL;
-    self->includes.list.count = 0;
-*/
 }
 
 // Returns "false" on success.
@@ -134,23 +129,6 @@ _local_exit:
     return ok;
 }
 
-void asm_file_free (struct asm_file_t *self)
-{
-    if (!self)
-    {
-        // Fail
-        errno = EINVAL;
-        return;
-    }
-    if (self->data)
-        free (self->data);
-/*
-    if (self->includes.list.count)
-        include_files_free (& (self->includes));
-*/
-    asm_file_clear (self);
-}
-
 bool asm_file_eof (struct asm_file_t *self)
 {
     if (!self)
@@ -197,7 +175,7 @@ bool asm_file_eol (struct asm_file_t *self)
         return true;    // Fail
 }
 
-char *_find_line_end (char *s, unsigned len)
+const char *_find_line_end (const char *s, unsigned len)
 {
     if (!s)
         return (char *) NULL;   // Fail
@@ -211,7 +189,7 @@ char *_find_line_end (char *s, unsigned len)
     return s;   // Success
 }
 
-char *_skip_line_end (char *s, unsigned len)
+const char *_skip_line_end (const char *s, unsigned len)
 {
     if (!s)
         return (char *) NULL;   // Fail
@@ -239,9 +217,9 @@ char *_skip_line_end (char *s, unsigned len)
     return s;
 }
 
-bool asm_file_next_line (struct asm_file_t *self, char **s, unsigned *len)
+bool asm_file_next_line (struct asm_file_t *self, const char **s, unsigned *len)
 {
-    char *startp, *endp;
+    const char *startp, *endp;
     unsigned sz;
 
     if (!self || !s || !len)
@@ -285,4 +263,17 @@ bool asm_file_next_line (struct asm_file_t *self, char **s, unsigned *len)
     *s = (char *) NULL;
     *len = 0;
     return false;
+}
+
+void asm_file_free (struct asm_file_t *self)
+{
+    if (!self)
+    {
+        // Fail
+        errno = EINVAL;
+        return;
+    }
+    if (self->data)
+        free (self->data);
+    asm_file_clear (self);
 }

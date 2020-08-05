@@ -15,6 +15,43 @@
 #include "l_list.h"
 #include "l_isrc.h"
 
+void
+    input_source_entry_clear
+    (
+        struct input_source_entry_t *self
+    )
+{
+    list_entry_clear (&self->list_entry);
+    self->real = NULL;
+    self->base = NULL;
+    self->user = NULL;
+}
+
+void
+    input_source_entry_free
+    (
+        struct input_source_entry_t *self
+    )
+{
+    list_entry_free (&self->list_entry);
+    if (self->real)
+        free (self->real);
+    if (self->base)
+        free (self->base);
+    if (self->user)
+        free (self->user);
+    input_source_entry_clear (self);
+}
+
+void
+    input_sources_clear
+    (
+        struct input_sources_t *self
+    )
+{
+    list_clear (&self->list);
+}
+
 bool
     input_sources_add
     (
@@ -69,7 +106,7 @@ bool
         goto _local_exit;
     }
 
-    p->list_entry.next = NULL;
+    input_source_entry_clear (p);
     p->real = p_real;
     p->base = p_base;
     p->user = p_user;
@@ -339,3 +376,22 @@ void
         _DBG ("No input sources.");
 }
 #endif  // DEBUG == 1
+
+void
+    input_sources_free
+    (
+        struct input_sources_t *self
+    )
+{
+    struct input_source_entry_t *p, *n;
+
+    p = (struct input_source_entry_t *) self->list.first;
+    while (p)
+    {
+        n = (struct input_source_entry_t *) p->list_entry.next;
+        input_source_entry_free (p);
+        free (p);
+        p = n;
+    }
+    input_sources_clear (self);
+}

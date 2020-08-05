@@ -6,11 +6,15 @@
 #ifndef _L_ERR_H_INCLUDED
 #define _L_ERR_H_INCLUDED
 
+#include "defs.h"
+
 #include <stdbool.h>
 #include <stdarg.h>
 #include "l_list.h"
 
 // Errors list structure
+
+// Entry
 
 struct error_entry_t
 {
@@ -18,10 +22,30 @@ struct error_entry_t
     char *msg;
 };
 
+void
+    error_entry_clear
+    (
+        struct error_entry_t *self
+    );
+
+void
+    error_entry_free
+    (
+        struct error_entry_t *self
+    );
+
+// List
+
 struct errors_t
 {
     struct list_t list;
 };
+
+void
+    errors_clear
+    (
+        struct errors_t *self
+    );
 
 // Returns "false" on success ("result" if presents is set to list entry).
 bool
@@ -52,6 +76,12 @@ bool
         unsigned bufsize,
         const char *format,
         ...
+    );
+
+void
+    errors_free
+    (
+        struct errors_t *self
     );
 
 #endif  // !_L_ERR_H_INCLUDED
